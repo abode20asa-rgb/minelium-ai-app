@@ -76,9 +76,31 @@ form textarea::placeholder{color:var(--mut)}
 #drawer .dh b{font-size:1.1rem}
 .dbtn{background:var(--sf2);border:0;color:var(--ink);border-radius:20px;padding:13px 16px;font-size:.95rem;font-weight:700;text-align:right;cursor:pointer}
 #dplan{background:var(--bg);border-radius:18px;padding:12px 14px;font-size:.82rem;color:var(--pri);line-height:1.8;margin-top:4px}
+
+/* شاشة البداية: الشعار يطلع من تحت ويثبت بالنص */
+#splash{position:fixed;inset:0;z-index:100;background:#131314;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;transition:opacity .5s ease}
+#splash.out{opacity:0;pointer-events:none}
+#splash img{width:116px;height:116px;border-radius:32px;box-shadow:0 0 70px rgba(155,227,195,.35);animation:rise 1.2s cubic-bezier(.16,1,.3,1) both}
+#splash b{font-size:1.5rem;font-weight:800;animation:ft .6s ease 1s both}
+@keyframes rise{from{transform:translateY(75vh) scale(.75);opacity:0}to{transform:none;opacity:1}}
+@keyframes ft{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+/* الصور */
+#prev{display:flex;align-items:center;gap:8px;margin:0 12px;padding:6px 8px;background:var(--sf);border-radius:20px;max-width:736px;width:calc(100% - 24px);align-self:center}
+#prev img{width:56px;height:56px;object-fit:cover;border-radius:12px}
+#prm{background:var(--sf2);color:var(--ink);border:0;border-radius:50%;width:30px;height:30px;cursor:pointer}
+.mimg{display:block;max-width:100%;max-height:220px;border-radius:14px;margin-bottom:8px}
+#att{flex:0 0 42px}
+#clist{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:4px}
+#clist small{color:var(--mut);font-size:.75rem;padding:6px 8px}
+.ci{display:flex;align-items:center;border-radius:16px}
+.ci.on{background:var(--sf2)}
+.ci .t{flex:1;min-width:0;background:none;border:0;color:var(--ink);text-align:right;padding:11px 12px;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.ci .x{background:none;border:0;color:var(--mut);width:34px;height:34px;cursor:pointer}
 </style>
 </head>
 <body>
+<div id="splash"><img src="logo.png" alt=""><b class="grad">Minelium AI</b></div>
+<script>setTimeout(function(){var s=document.getElementById('splash');if(!s)return;s.classList.add('out');setTimeout(function(){s.remove()},550)},2000)</script>
 
 <!-- شاشة التفعيل -->
 <div id="lock" class="hidden">
@@ -112,7 +134,10 @@ form textarea::placeholder{color:var(--mut)}
     <button class="chip" type="button"><i>💻</i>ساعدني ببرمجة</button>
     <button class="chip" type="button"><i>🌐</i>ترجم لي نص</button>
   </div>
+  <div id="prev" class="hidden"><img id="pimg" alt=""><button id="prm" type="button" aria-label="إزالة الصورة">✕</button></div>
   <form id="f">
+    <button class="ic" id="att" type="button" aria-label="إرفاق صورة">📎</button>
+    <input type="file" id="file" accept="image/*" class="hidden">
     <textarea id="in" rows="1" placeholder="اسأل Minelium AI"></textarea>
     <button id="send" type="submit" aria-label="إرسال">↑</button>
   </form>
@@ -121,8 +146,8 @@ form textarea::placeholder{color:var(--mut)}
   <div id="drawer">
     <div class="dh"><img src="logo.png" alt=""><b class="grad">Minelium AI</b></div>
     <button class="dbtn" id="newc2" type="button">✎ محادثة جديدة</button>
+    <div id="clist"></div>
     <div id="dplan"></div>
-    <div style="flex:1"></div>
     <button class="dbtn" id="out" type="button" style="color:#ff8a80">⎋ تسجيل الخروج</button>
   </div>
 </div>
@@ -131,8 +156,8 @@ form textarea::placeholder{color:var(--mut)}
 <script>
 (function(){
   var C=window.APP_CONFIG||{}, $=function(i){return document.getElementById(i);};
-  var K_TOKEN='minelium_token', K_HIST='minelium_hist';
-  var token=null, sub=null, hist=[], busy=false;
+  var K_TOKEN='minelium_token', K_HIST='minelium_hist', K_CHATS='minelium_chats', K_CUR='minelium_cur';
+  var token=null, sub=null, hist=[], busy=false, chats=[], cur=null;
 
   function lsGet(k){ try{return localStorage.getItem(k);}catch(e){return null;} }
   function lsSet(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
@@ -181,16 +206,43 @@ form textarea::placeholder{color:var(--mut)}
   function hero(){ var n=lsGet('minelium_name')||''; var d=document.createElement('div'); d.id='hero'; d.innerHTML='<h2 class="grad">أهلاً '+esc(n)+'</h2><h3>شلون أكدر أساعدك اليوم؟</h3>'; $('msgs').appendChild(d); $('chips').classList.remove('hidden'); }
   function welcome(){ hero(); }
   function clearHero(){ var h=$('hero'); if(h) h.remove(); $('chips').classList.add('hidden'); }
+  function titleOf(m){ var f=null; for(var i=0;i<m.length;i++){ if(m[i].r==='user'){ f=m[i]; break; } } return (f?f.t:'محادثة').replace(/^📷 \[صورة\] /,'📷 ').slice(0,40); }
+  function curChat(){ for(var i=0;i<chats.length;i++){ if(chats[i].id===cur) return chats[i]; } return null; }
+  function persist(){ chats=chats.slice(0,30); lsSet(K_CHATS,JSON.stringify(chats)); lsSet(K_CUR,cur?String(cur):''); }
+  function loadChats(){
+    try{ chats=JSON.parse(lsGet(K_CHATS)||'[]')||[]; }catch(e){ chats=[]; }
+    var old=lsGet(K_HIST);
+    if(old){ try{ var o=JSON.parse(old); if(o&&o.length&&!chats.length){ var id=Date.now(); chats.push({id:id,t:titleOf(o),ts:id,m:o}); } }catch(e){} lsDel(K_HIST); }
+    cur=Number(lsGet(K_CUR))||null; if(!curChat()) cur=chats.length?chats[0].id:null;
+    persist();
+  }
   function loadHist(){
     $('msgs').innerHTML=''; hist=[];
-    try{ hist=JSON.parse(lsGet(K_HIST)||'[]')||[]; }catch(e){ hist=[]; }
+    var c=curChat(); if(c) hist=(c.m||[]).slice();
     if(!hist.length){ welcome(); return; }
     clearHero(); hist.forEach(function(h){ if(h.r==='bot') addMsg('bot',md(h.t)); else addMsg('me',h.t,true); });
   }
-  function saveHist(){ hist=hist.slice(-40); lsSet(K_HIST,JSON.stringify(hist)); }
+  function saveHist(){
+    hist=hist.slice(-60); var c=curChat();
+    if(!c){ c={id:Date.now(),t:'',ts:0,m:[]}; cur=c.id; }
+    c.m=hist; c.t=titleOf(hist); c.ts=Date.now();
+    chats=[c].concat(chats.filter(function(z){return z!==c;})); persist(); renderList();
+  }
+  function renderList(){
+    var L=$('clist'); L.innerHTML='';
+    var h=document.createElement('small'); h.textContent=chats.length?'محادثاتك':'ما عندك محادثات محفوظة بعد'; L.appendChild(h);
+    chats.forEach(function(c){
+      var d=document.createElement('div'); d.className='ci'+(c.id===cur?' on':'');
+      var t=document.createElement('button'); t.type='button'; t.className='t'; t.textContent=c.t||'محادثة';
+      t.onclick=function(){ if(busy) return; cur=c.id; persist(); loadHist(); renderList(); drawer(false); };
+      var x=document.createElement('button'); x.type='button'; x.className='x'; x.textContent='✕'; x.setAttribute('aria-label','حذف');
+      x.onclick=function(){ if(busy||!confirm('حذف هذه المحادثة؟')) return; chats=chats.filter(function(z){return z!==c;}); if(cur===c.id){ cur=null; loadHist(); } persist(); renderList(); };
+      d.appendChild(t); d.appendChild(x); L.appendChild(d);
+    });
+  }
   function enterChat(){ show('chat'); loadHist(); setSub(sub); }
   function lost(reason){
-    token=null; sub=null; lsDel(K_TOKEN); lsDel(K_HIST);
+    token=null; sub=null; lsDel(K_TOKEN);
     $('err').textContent=reason==='expired'?'⏳ انتهى اشتراكك. للتجديد اطلب كود جديد من الإدارة.':'🔒 انسحبت صلاحية اشتراكك. اطلب كود جديد من الإدارة.';
     $('go').disabled=false; show('lock');
   }
@@ -205,21 +257,45 @@ form textarea::placeholder{color:var(--mut)}
     $('go').disabled=true;
     rpc('ai_full_redeem',{p_code:code,p_name:name,p_phone:$('phone').value.trim()}).then(function(r){
       if(r&&typeof r.token==='string'&&r.token.length>=20){
-        token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name); lsDel(K_HIST); sub=r; show('chat'); $('msgs').innerHTML=''; hist=[]; setSub(r);
+        token=r.token; lsSet(K_TOKEN,token); var prev=lsGet('minelium_name'); lsSet('minelium_name',name); if(prev!==name) chats=[]; cur=null; persist(); renderList(); sub=r; show('chat'); $('msgs').innerHTML=''; hist=[]; setSub(r);
         addMsg('ok','✅ تم الاشتراك بباقة <b>'+planName(r)+'</b> — '+esc(planLine(r).replace(/^\S+\s/,''))+'<br>استمتع 🎉');
         welcome();
       }else{ err.textContent='❌ الكود غلط أو انتهت صلاحيته أو انستخدم قبل'; $('go').disabled=false; }
     }).catch(function(){ err.textContent='⚠️ تعذّر الاتصال، تأكد من الإنترنت وجرّب مرة ثانية'; $('go').disabled=false; });
   };
 
+  /* ── الصور ── */
+  var img=null;
+  function clearImg(){ img=null; $('pimg').removeAttribute('src'); $('prev').classList.add('hidden'); $('file').value=''; }
+  $('att').onclick=function(){ $('file').click(); };
+  $('prm').onclick=clearImg;
+  $('file').onchange=function(){
+    var f=this.files&&this.files[0]; if(!f) return;
+    var fr=new FileReader();
+    fr.onload=function(){
+      var im=new Image();
+      im.onload=function(){
+        var s=Math.min(1,1024/Math.max(im.width,im.height)), c=document.createElement('canvas');
+        c.width=Math.round(im.width*s); c.height=Math.round(im.height*s);
+        var x=c.getContext('2d'); x.fillStyle='#fff'; x.fillRect(0,0,c.width,c.height); x.drawImage(im,0,0,c.width,c.height);
+        img=c.toDataURL('image/jpeg',0.8); $('pimg').src=img; $('prev').classList.remove('hidden');
+      };
+      im.onerror=function(){ alert('صيغة الصورة غير مدعومة، جرّب صورة JPG أو PNG'); clearImg(); };
+      im.src=fr.result;
+    };
+    fr.readAsDataURL(f);
+  };
+
   /* ── الإرسال ── */
   function send(q){
-    if(busy||!q) return; busy=true; $('send').disabled=true; clearHero();
-    addMsg('me',q,true);
+    if(busy||(!q&&!img)) return; busy=true; $('send').disabled=true; clearHero();
+    var im=img; clearImg(); if(!q) q='اشرح لي هذه الصورة.';
+    var mm=addMsg('me',q,true);
+    if(im){ var t=document.createElement('img'); t.src=im; t.className='mimg'; mm.insertBefore(t,mm.firstChild); }
     var d=addMsg('bot','<span class="dots"><span></span><span></span><span></span></span>');
     var h=hist.slice(-10);
     fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({q:q.slice(0,1500),history:h,full:true,token:token})})
+      body:JSON.stringify({q:q.slice(0,1500),history:h,full:true,token:token,image:im||undefined})})
     .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){
       if(r.status===403&&(j.error==='kicked'||j.error==='expired')){ d.remove(); lost(j.error); return; }
       if(r.status===429&&j.error==='limit'){
@@ -228,17 +304,17 @@ form textarea::placeholder{color:var(--mut)}
       }
       if(!r.ok||!j.text) throw new Error(j.error||('HTTP '+r.status));
       if(j.sub) setSub(j.sub);
-      hist.push({r:'user',t:q.slice(0,1500)}); hist.push({r:'bot',t:String(j.text).slice(0,3000)}); saveHist();
+      hist.push({r:'user',t:(im?'📷 [صورة] ':'')+q.slice(0,1500)}); hist.push({r:'bot',t:String(j.text).slice(0,3000)}); saveHist();
       d.setBody(md(j.text));
     }); })
     .catch(function(e){ d.setText('⚠️ صار خطأ بالاتصال: '+String((e&&e.message)||'').slice(0,120)+' — جرّب مرة ثانية.'); })
     .then(function(){ busy=false; $('send').disabled=false; $('msgs').scrollTop=$('msgs').scrollHeight; });
   }
-  $('f').onsubmit=function(e){ e.preventDefault(); var v=$('in').value.trim(); if(!v) return; $('in').value=''; $('in').style.height='auto'; send(v); };
+  $('f').onsubmit=function(e){ e.preventDefault(); var v=$('in').value.trim(); if(!v&&!img) return; $('in').value=''; $('in').style.height='auto'; send(v); };
   $('in').addEventListener('input',function(){ this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,120)+'px'; });
   $('in').addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('f').requestSubmit(); } });
-  $('newc').onclick=function(){ if(busy) return; lsDel(K_HIST); loadHist(); };
-  $('out').onclick=function(){ if(confirm('تسجيل الخروج من هذا الجهاز؟ تحتاج كود جديد للرجوع.')){ token=null; sub=null; lsDel(K_TOKEN); lsDel(K_HIST); lsDel('minelium_name'); $('go').disabled=false; $('err').textContent=''; show('lock'); } };
+  $('newc').onclick=function(){ if(busy) return; cur=null; persist(); loadHist(); renderList(); };
+  $('out').onclick=function(){ if(confirm('تسجيل الخروج من هذا الجهاز؟ تحتاج كود جديد للرجوع.')){ token=null; sub=null; chats=[]; cur=null; lsDel(K_TOKEN); lsDel(K_CHATS); lsDel(K_CUR); lsDel('minelium_name'); renderList(); $('go').disabled=false; $('err').textContent=''; show('lock'); } };
 
   /* ── القائمة والاقتراحات ── */
   var chat=$('chat');
@@ -251,6 +327,7 @@ form textarea::placeholder{color:var(--mut)}
   $('out').addEventListener('click',function(){ drawer(false); });
 
   /* ── البداية ── */
+  loadChats(); renderList();
   token=lsGet(K_TOKEN);
   if(!token){ show('lock'); return; }
   show('chat'); loadHist();
