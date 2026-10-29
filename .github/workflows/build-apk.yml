@@ -16,6 +16,11 @@ jobs:
       - run: npx cap add android
       - run: npx --yes @capacitor/assets@3 generate --android --assetPath assets/assets
       - run: npx cap sync android
+      - name: توقيع ثابت (حتى يتحدّث التطبيق فوق القديم)
+        env:
+          KS: ${{ secrets.DEBUG_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS" ]; then mkdir -p ~/.android && echo "$KS" | base64 -d > ~/.android/debug.keystore; echo "fixed key"; else echo "no key secret - random key"; fi
       - run: chmod +x android/gradlew && cd android && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
