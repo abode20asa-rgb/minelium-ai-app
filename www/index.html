@@ -286,6 +286,22 @@ form textarea::placeholder{color:var(--mut)}
     fr.readAsDataURL(f);
   };
 
+  /* ── كتابة الرد تدريجياً: يبدي بـ5 كلمات وبعدين يتسارع، وبدون ما تنزل الشاشة لحالها ── */
+  function typeOut(d,text,done){
+    var parts=text.split(/(\s+)/), n=Math.min(parts.length,9), tick=0, m=$('msgs'), long=text.length>350;
+    function show(){ var p=parts.slice(0,n).join(''); if((p.match(/```/g)||[]).length%2) p+='\n```'; d.setBody(md(p)); }
+    if(long){ d.style.minHeight=Math.max(120,m.clientHeight-30)+'px'; }
+    show();
+    if(long){ m.scrollTop+=d.getBoundingClientRect().top-m.getBoundingClientRect().top-8; }
+    (function step(){
+      if(n>=parts.length){ d.style.minHeight=''; done&&done(); return; }
+      tick++;
+      n=Math.min(parts.length,n+2*Math.min(40,1+Math.floor(tick/3)));
+      show();
+      setTimeout(step,Math.max(16,90-tick*4));
+    })();
+  }
+
   /* ── الإرسال ── */
   function send(q){
     if(busy||(!q&&!img)) return; busy=true; $('send').disabled=true; clearHero();
@@ -305,10 +321,10 @@ form textarea::placeholder{color:var(--mut)}
       if(!r.ok||!j.text) throw new Error(j.error||('HTTP '+r.status));
       if(j.sub) setSub(j.sub);
       hist.push({r:'user',t:(im?'📷 [صورة] ':'')+q.slice(0,1500)}); hist.push({r:'bot',t:String(j.text).slice(0,3000)}); saveHist();
-      d.setBody(md(j.text));
+      return new Promise(function(res){ typeOut(d,String(j.text),res); });
     }); })
     .catch(function(e){ d.setText('⚠️ صار خطأ بالاتصال: '+String((e&&e.message)||'').slice(0,120)+' — جرّب مرة ثانية.'); })
-    .then(function(){ busy=false; $('send').disabled=false; $('msgs').scrollTop=$('msgs').scrollHeight; });
+    .then(function(){ busy=false; $('send').disabled=false; });
   }
   $('f').onsubmit=function(e){ e.preventDefault(); var v=$('in').value.trim(); if(!v&&!img) return; $('in').value=''; $('in').style.height='auto'; send(v); };
   $('in').addEventListener('input',function(){ this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,120)+'px'; });
