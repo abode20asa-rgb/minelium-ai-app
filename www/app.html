@@ -96,6 +96,10 @@ form textarea::placeholder{color:var(--mut)}
 .ci.on{background:var(--sf2)}
 .ci .t{flex:1;min-width:0;background:none;border:0;color:var(--ink);text-align:right;padding:11px 12px;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
 .ci .x{background:none;border:0;color:var(--mut);width:34px;height:34px;cursor:pointer}
+#s2 .hidden,#s1 .hidden{display:none}
+.gbtn{background:#fff;color:#1f1f1f;display:flex;align-items:center;justify-content:center;gap:10px}
+.lnk{background:none;border:0;color:var(--mut);margin-top:12px;font-size:.85rem;cursor:pointer;text-decoration:underline}
+#who{background:var(--sf);border-radius:18px;padding:10px 14px;margin-bottom:10px;font-size:.85rem;color:var(--pri);direction:ltr}
 </style>
 </head>
 <body>
@@ -112,11 +116,20 @@ form textarea::placeholder{color:var(--mut)}
     <div class="plan"><b>⏳ Pro — اشتراك بمدة</b><span>تسأل براحتك ويظل اشتراكك شغّال لعدد أيام محدد.</span></div>
     <div class="plan"><b>♾️ Max — بلا حدود</b><span>أسئلة بدون حد يومي وبدون مدة تنتهي.</span></div>
   </div>
-  <input id="name" placeholder="اسمك" maxlength="40" autocomplete="name">
-  <input id="phone" placeholder="رقم الهاتف (اختياري)" maxlength="15" inputmode="tel" style="direction:ltr">
-  <input id="code" placeholder="XXXXX-XXXXX" maxlength="14" autocapitalize="characters" autocomplete="off">
-  <div class="err" id="err"></div>
-  <button class="btn" id="go">🔑 تفعيل الاشتراك</button>
+<div id="s1">
+    <input id="name" placeholder="اسمك الأول" maxlength="40" autocomplete="given-name">
+    <div class="err" id="err"></div>
+    <button class="btn gbtn" id="gg" type="button"><svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>المتابعة بحساب Google</button>
+  </div>
+  <div id="s2" class="hidden">
+    <div id="who"></div>
+    <input id="name2" placeholder="اسمك الأول" maxlength="40" autocomplete="given-name">
+    <input id="phone" class="hidden" placeholder="رقم الهاتف (اختياري)" maxlength="15" inputmode="tel" style="direction:ltr">
+    <input id="code" placeholder="XXXXX-XXXXX" maxlength="14" autocapitalize="characters" autocomplete="off">
+    <div class="err" id="err2"></div>
+    <button class="btn" id="go">🔑 تفعيل الاشتراك</button>
+    <button class="lnk" id="other" type="button">استعمال حساب Google ثاني</button>
+  </div>
 </div>
 
 <!-- شاشة المحادثة -->
@@ -189,9 +202,10 @@ form textarea::placeholder{color:var(--mut)}
     if(String(k).indexOf('sb_')!==0) h.Authorization='Bearer '+k; /* المفاتيح الجديدة sb_ تنرسل بـ apikey فقط */
     return h;
   }
-  function rpc(fn,args){
+  function rpc(fn,args,jwt){
+    var hh=sbHeaders(); if(jwt) hh.Authorization='Bearer '+jwt;
     return fetch(C.SUPABASE_URL+'/rest/v1/rpc/'+fn,{method:'POST',
-      headers:sbHeaders(),
+      headers:hh,
       body:JSON.stringify(args)}).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); });
   }
 
@@ -243,25 +257,72 @@ form textarea::placeholder{color:var(--mut)}
   function enterChat(){ show('chat'); loadHist(); setSub(sub); }
   function lost(reason){
     token=null; sub=null; lsDel(K_TOKEN);
-    $('err').textContent=reason==='expired'?'⏳ انتهى اشتراكك. للتجديد اطلب كود جديد من الإدارة.':'🔒 انسحبت صلاحية اشتراكك. اطلب كود جديد من الإدارة.';
-    $('go').disabled=false; show('lock');
+    errEl().textContent=reason==='expired'?'⏳ انتهى اشتراكك. للتجديد اطلب كود جديد من الإدارة.':'🔒 انسحبت صلاحية اشتراكك. اطلب كود جديد من الإدارة.';
+    $('go').disabled=false; show('lock'); step(native()?1:2);
   }
 
   /* ── التفعيل ── */
-  $('go').onclick=function(){
+  /* ── تسجيل الدخول بـ Google (عبر Supabase + متصفح النظام) ── */
+  var SCHEME='minelium://auth', jwt=null, gUser={email:'',name:''};
+  function P(){ return (window.Capacitor&&window.Capacitor.Plugins)||{}; }
+  function native(){ var p=P(); return !!(p.Browser&&p.App); }
+  function step(n){ $('s1').classList.toggle('hidden',n!==1); $('s2').classList.toggle('hidden',n!==2); }
+  function errEl(){ return native()?$('err'):$('err2'); }
+  function parseUrl(u){ var i=u.indexOf('#'), q=i>=0?u.slice(i+1):(u.indexOf('?')>=0?u.split('?')[1]:''), o={}; q.split('&').forEach(function(kv){ var a=kv.split('='); if(a[0]) o[a[0]]=decodeURIComponent((a[1]||'').replace(/\+/g,' ')); }); return o; }
+  function jwtInfo(t){ try{ var b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'), j=JSON.parse(decodeURIComponent(escape(atob(b)))), m=j.user_metadata||{}; return {email:j.email||'',name:m.given_name||String(m.full_name||m.name||'').split(' ')[0]||''}; }catch(e){ return {email:'',name:''}; } }
+  function enterWith(r,name){
+    token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name||r.name||gUser.name||''); sub=r; show('chat'); loadHist(); setSub(r); renderList();
+  }
+  function onAuth(url){
+    var q=parseUrl(url); try{ P().Browser.close(); }catch(e){}
+    $('gg').disabled=false;
+    if(q.error||!q.access_token){ $('err').textContent='⚠️ ما تم تسجيل الدخول'+(q.error_description?': '+q.error_description.slice(0,90):''); return; }
+    jwt=q.access_token; gUser=jwtInfo(jwt);
+    rpc('ai_full_restore',{},jwt).then(function(r){
+      if(r&&r.token&&!r.expired){ enterWith(r); return; }
+      $('who').textContent='✅ '+(gUser.email||'Google');
+      $('name2').value=(r&&r.name)||lsGet('minelium_pending_name')||gUser.name||'';
+      $('err2').textContent=r&&r.kicked?'🔒 انسحبت صلاحية اشتراكك. أدخل كود جديد.':(r&&r.expired?'⏳ انتهى اشتراكك. أدخل كود تجديد.':'');
+      step(2);
+    }).catch(function(){ $('err').textContent='⚠️ تعذّر الاتصال، جرّب مرة ثانية'; });
+  }
+  $('gg').onclick=function(){
     var err=$('err'); err.textContent='';
     if(!configured()){ err.textContent='⚠️ إعدادات التطبيق ناقصة (config.js)'; return; }
-    var name=$('name').value.trim(), code=$('code').value.trim().toUpperCase();
+    if(!native()){ err.textContent='⚠️ حدّث التطبيق لآخر نسخة حتى يشتغل تسجيل Google'; return; }
+    var n=$('name').value.trim(); if(n) lsSet('minelium_pending_name',n);
+    $('gg').disabled=true; setTimeout(function(){ $('gg').disabled=false; },8000);
+    P().Browser.open({url:C.SUPABASE_URL+'/auth/v1/authorize?provider=google&prompt=select_account&redirect_to='+encodeURIComponent(SCHEME)});
+  };
+  $('other').onclick=function(){ jwt=null; $('err').textContent=''; step(1); };
+  if(native()){
+    try{
+      P().App.addListener('appUrlOpen',function(e){ if(e&&e.url&&e.url.indexOf('minelium://')===0) onAuth(e.url); });
+      P().App.getLaunchUrl().then(function(r){ if(r&&r.url&&r.url.indexOf('minelium://')===0) onAuth(r.url); });
+    }catch(e){}
+  }else{ $('phone').classList.remove('hidden'); $('who').classList.add('hidden'); $('other').classList.add('hidden'); }
+
+  /* ── التفعيل بالكود ── */
+  $('go').onclick=function(){
+    var err=$('err2'); err.textContent='';
+    if(!configured()){ err.textContent='⚠️ إعدادات التطبيق ناقصة (config.js)'; return; }
+    var name=$('name2').value.trim(), code=$('code').value.trim().toUpperCase(), nat=native();
     if(name.length<2){ err.textContent='اكتب اسمك'; return; }
     if(code.length<8){ err.textContent='اكتب الكود كامل'; return; }
+    if(nat&&!jwt){ step(1); $('err').textContent='سجّل دخول بـ Google أول'; return; }
     $('go').disabled=true;
-    rpc('ai_full_redeem',{p_code:code,p_name:name,p_phone:$('phone').value.trim()}).then(function(r){
+    (nat?rpc('ai_full_redeem2',{p_code:code,p_name:name},jwt):rpc('ai_full_redeem',{p_code:code,p_name:name,p_phone:$('phone').value.trim()})).then(function(r){
       if(r&&typeof r.token==='string'&&r.token.length>=20){
-        token=r.token; lsSet(K_TOKEN,token); var prev=lsGet('minelium_name'); lsSet('minelium_name',name); if(prev!==name) chats=[]; cur=null; persist(); renderList(); sub=r; show('chat'); $('msgs').innerHTML=''; hist=[]; setSub(r);
+        var prev=lsGet('minelium_name'); if(!nat&&prev!==name) chats=[]; cur=null; persist(); lsDel(K_HIST);
+        token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name); sub=r; show('chat'); $('msgs').innerHTML=''; hist=[]; setSub(r); renderList();
         addMsg('ok','✅ تم الاشتراك بباقة <b>'+planName(r)+'</b> — '+esc(planLine(r).replace(/^\S+\s/,''))+'<br>استمتع 🎉');
         welcome();
       }else{ err.textContent='❌ الكود غلط أو انتهت صلاحيته أو انستخدم قبل'; $('go').disabled=false; }
-    }).catch(function(){ err.textContent='⚠️ تعذّر الاتصال، تأكد من الإنترنت وجرّب مرة ثانية'; $('go').disabled=false; });
+    }).catch(function(e){
+      $('go').disabled=false;
+      if(/401/.test(String(e&&e.message))){ jwt=null; step(1); $('err').textContent='انتهت جلسة Google، سجّل دخول مرة ثانية'; }
+      else err.textContent='⚠️ تعذّر الاتصال، تأكد من الإنترنت وجرّب مرة ثانية';
+    });
   };
 
   /* ── الصور ── */
@@ -330,7 +391,7 @@ form textarea::placeholder{color:var(--mut)}
   $('in').addEventListener('input',function(){ this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,120)+'px'; });
   $('in').addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('f').requestSubmit(); } });
   $('newc').onclick=function(){ if(busy) return; cur=null; persist(); loadHist(); renderList(); };
-  $('out').onclick=function(){ if(confirm('تسجيل الخروج من هذا الجهاز؟ تحتاج كود جديد للرجوع.')){ token=null; sub=null; chats=[]; cur=null; lsDel(K_TOKEN); lsDel(K_CHATS); lsDel(K_CUR); lsDel('minelium_name'); renderList(); $('go').disabled=false; $('err').textContent=''; show('lock'); } };
+  $('out').onclick=function(){ if(confirm('تسجيل الخروج من هذا الجهاز؟ تحتاج كود جديد للرجوع.')){ token=null; sub=null; chats=[]; cur=null; lsDel(K_TOKEN); lsDel(K_CHATS); lsDel(K_CUR); lsDel('minelium_name'); renderList(); $('go').disabled=false; $('err').textContent=''; $('err2').textContent=''; jwt=null; show('lock'); step(native()?1:2); } };
 
   /* ── القائمة والاقتراحات ── */
   var chat=$('chat');
@@ -345,7 +406,7 @@ form textarea::placeholder{color:var(--mut)}
   /* ── البداية ── */
   loadChats(); renderList();
   token=lsGet(K_TOKEN);
-  if(!token){ show('lock'); return; }
+  if(!token){ show('lock'); step(native()?1:2); return; }
   show('chat'); loadHist();
   if(configured()) rpc('ai_full_check',{p_token:token}).then(function(r){
     if(r&&r.ok===false){ lost(r.reason); return; }
