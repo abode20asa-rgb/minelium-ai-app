@@ -104,6 +104,15 @@ form textarea::placeholder{color:var(--mut)}
 #upg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}#upg.hidden{display:none}
 #upg .box{background:var(--sf);border-radius:22px;padding:20px;width:100%;max-width:380px;text-align:center}#upg p{color:var(--mut);font-size:.85rem;margin:8px 0 12px;line-height:1.7}
 #upg input{width:100%;padding:12px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font-size:1rem;margin-bottom:8px}
+.top .ttl{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
+.mdl{display:inline-flex;align-items:center;gap:6px;background:var(--sf);border:0;color:var(--ink);border-radius:14px;padding:3px 10px 3px 7px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit}
+.mdl.hidden{display:none}.mdl img{width:18px;height:18px;border-radius:6px;object-fit:cover}.mdl i{font-style:normal;color:var(--mut)}
+#msheet{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:60}#msheet.hidden{display:none}
+#msheet .box{background:var(--sf);border-radius:22px 22px 0 0;padding:16px;width:100%;max-width:520px;max-height:75vh;overflow:auto}
+.mi{display:flex;gap:12px;align-items:center;padding:10px;border-radius:16px;cursor:pointer;margin-top:8px;background:var(--bg);border:1.5px solid transparent;text-align:right;width:100%;color:var(--ink);font-family:inherit}
+.mi.on{border-color:var(--pri)}.mi.lock{opacity:.55}
+.mi img,.mi .ph{width:40px;height:40px;border-radius:12px;object-fit:cover;flex:none;background:var(--sf2);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--pri)}
+.mi b{display:block;font-size:.95rem}.mi small{color:var(--mut);font-size:.75rem}.mi .lk{margin-inline-start:auto;font-size:.72rem;color:var(--mut);white-space:nowrap}
 </style>
 </head>
 <body>
@@ -142,7 +151,7 @@ form textarea::placeholder{color:var(--mut)}
 <div id="chat" class="hidden">
   <div class="top">
     <button class="ic" id="menu" type="button" aria-label="القائمة">☰</button>
-    <div class="ttl grad">Minelium AI</div>
+    <div class="ttl"><span class="grad">Minelium AI</span><button class="mdl hidden" id="mdl" type="button"><img id="mdlI" alt=""><span id="mdlN"></span><i>▾</i></button></div>
     <div class="pill" id="plan"></div>
     <button class="ic" id="newc" type="button" aria-label="محادثة جديدة">✎</button>
   </div>
@@ -173,6 +182,7 @@ form textarea::placeholder{color:var(--mut)}
 </div>
 
 <div id="upg" class="hidden"><div class="box"><b>⭐ اشتراك — أدخل الكود</b><p id="upgp"></p><input id="upgc" placeholder="XXXXX-XXXXX" maxlength="14" autocapitalize="characters" autocomplete="off" style="direction:ltr;text-align:center"><div class="err" id="upge"></div><button class="btn" id="upgg" type="button">🔑 تفعيل</button><button class="lnk" id="upgx" type="button">إغلاق</button></div></div>
+<div id="msheet" class="hidden"><div class="box"><b>اختر النموذج</b><div id="mlist"></div><div class="note" id="mnote"></div><button class="lnk" id="mx" type="button">إغلاق</button></div></div>
 <script src="config.js"></script>
 <script>
 (function(){
@@ -202,7 +212,7 @@ form textarea::placeholder{color:var(--mut)}
     var v=Number(x.value)||0, rem=Math.max(0,v-(Number(x.used_today)||0));
     return (x.plan==='free'?'🙂 عادي':'⚡ Plus')+' • باقي لك '+rem+' كردت من '+v+' اليوم (يتجدد كل يوم)';
   }
-  function setSub(x){ sub=x; var l=planLine(x); $('plan').textContent=l.replace(/^\S+\s/,'').split('•')[0].trim(); $('dplan').textContent=l; var n=lsGet('minelium_name'); }
+  function setSub(x){ sub=x; try{ paintModel(); }catch(e){} var l=planLine(x); $('plan').textContent=l.replace(/^\S+\s/,'').split('•')[0].trim(); $('dplan').textContent=l; var n=lsGet('minelium_name'); }
 
   /* ── الشبكة ── */
   function sbHeaders(){
@@ -280,7 +290,7 @@ form textarea::placeholder{color:var(--mut)}
   function errEl(){ return gmode()?$('err'):$('err2'); }
   function parseUrl(u){ var i=u.indexOf('#'), q=i>=0?u.slice(i+1):(u.indexOf('?')>=0?u.split('?')[1]:''), o={}; q.split('&').forEach(function(kv){ var a=kv.split('='); if(a[0]) o[a[0]]=decodeURIComponent((a[1]||'').replace(/\+/g,' ')); }); return o; }
   function jwtInfo(t){ try{ var b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'), j=JSON.parse(decodeURIComponent(escape(atob(b)))), m=j.user_metadata||{}; return {email:j.email||'',name:m.given_name||String(m.full_name||m.name||'').split(' ')[0]||''}; }catch(e){ return {email:'',name:''}; } }
-  function enterWith(r,name){
+  function enterWith(r,name){ try{ loadModels(); }catch(e){}
     token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name||r.name||gUser.name||''); sub=r; show('chat'); loadHist(); setSub(r); renderList();
   }
   function onAuth(url){
@@ -385,9 +395,10 @@ form textarea::placeholder{color:var(--mut)}
     var d=addMsg('bot','<span class="dots"><span></span><span></span><span></span></span>');
     var h=hist.slice(-10);
     fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({q:q.slice(0,1500),history:h,full:true,token:token,cid:String(cur||(cur=Date.now())),image:im||undefined})})
+      body:JSON.stringify({q:q.slice(0,1500),history:h,full:true,token:token,model:(curModel()||{}).id,cid:String(cur||(cur=Date.now())),image:im||undefined})})
     .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){
       if(r.status===403&&(j.error==='kicked'||j.error==='expired')){ d.remove(); lost(j.error); return; }
+      if(r.status===403&&j.error==='model_locked'){ d.setText('🔒 هذا النموذج غير متاح لباقتك الحالية. اختر نموذج ثاني من أعلى الشاشة، أو اشترك من القائمة ☰.'); return; }
       if(r.status===429&&j.error==='limit'){
         if(j.sub) setSub(j.sub);
         d.setText(sub&&sub.plan==='free'?'🙂 خلصت كردتك اليومية (10 رسائل). تتجدد باجر، أو اشترك هسه من القائمة ☰ ← «اشتراك».':'⚡ خلصت كردتك لليوم. تتجدد باجر، أو اشترك بباقة أعلى من القائمة ☰.'); return;
@@ -430,6 +441,42 @@ form textarea::placeholder{color:var(--mut)}
       else $('upge').textContent='❌ الكود غلط أو انتهت صلاحيته أو انستخدم قبل';
     }).catch(function(){ $('upgg').disabled=false; $('upge').textContent='⚠️ تعذّر الاتصال، جرّب مرة ثانية'; });
   };
+
+
+  /* ── النماذج (تنضاف من لوحة الأدمن) ── */
+  var models=[], selModel=lsGet('minelium_model')||'';
+  function okModel(m){ return !sub||!sub.plan||(m.plans||[]).indexOf(sub.plan)>=0; }
+  function curModel(){ var l=models||[], m=l.filter(function(x){ return x.id===selModel; })[0]; if(m&&okModel(m)) return m; return l.filter(okModel)[0]||null; }
+  function paintModel(){
+    var m=curModel(); $('mdl').classList.toggle('hidden',!m); if(!m) return;
+    selModel=m.id; $('mdlN').textContent=m.name;
+    if(m.icon){ $('mdlI').src=m.icon; $('mdlI').style.display=''; } else $('mdlI').style.display='none';
+  }
+  function loadModels(){
+    try{ models=JSON.parse(localStorage.getItem('minelium_models')||'[]'); }catch(e){ models=[]; }
+    paintModel();
+    fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({models:true})})
+      .then(function(r){ return r.json(); }).then(function(j){
+        if(j&&Array.isArray(j.models)){ models=j.models; try{ localStorage.setItem('minelium_models',JSON.stringify(models)); }catch(e){} paintModel(); }
+      }).catch(function(){});
+  }
+  $('mdl').onclick=function(){
+    var cm=curModel(); $('mnote').textContent='';
+    $('mlist').innerHTML=models.map(function(m,i){
+      var lk=!okModel(m);
+      return '<button class="mi'+(cm&&cm.id===m.id?' on':'')+(lk?' lock':'')+'" type="button" data-i="'+i+'">'
+        +(m.icon?'<img src="'+esc(m.icon)+'" alt="">':'<span class="ph">'+esc((m.name||'?').charAt(0))+'</span>')
+        +'<span><b>'+esc(m.name)+'</b><small>'+esc(m.desc||'')+'</small></span>'+(lk?'<span class="lk">🔒 باقة أعلى</span>':(cm&&cm.id===m.id?'<span class="lk">✓</span>':''))+'</button>';
+    }).join('');
+    $('msheet').classList.remove('hidden');
+  };
+  $('mlist').onclick=function(e){
+    var b=e.target.closest('.mi'); if(!b) return; var m=models[+b.dataset.i]; if(!m) return;
+    if(!okModel(m)){ $('mnote').textContent='🔒 هذا النموذج لباقات أعلى — اشترك من القائمة ☰ ← «اشتراك».'; return; }
+    selModel=m.id; try{ localStorage.setItem('minelium_model',m.id); }catch(x){} paintModel(); $('msheet').classList.add('hidden');
+  };
+  $('mx').onclick=function(){ $('msheet').classList.add('hidden'); };
+  try{ loadModels(); }catch(e){}
 
   /* ── البداية ── */
   loadChats(); renderList();
