@@ -100,6 +100,10 @@ form textarea::placeholder{color:var(--mut)}
 .gbtn{background:#fff;color:#1f1f1f;display:flex;align-items:center;justify-content:center;gap:10px}
 .lnk{background:none;border:0;color:var(--mut);margin-top:12px;font-size:.85rem;cursor:pointer;text-decoration:underline}
 #who{background:var(--sf);border-radius:18px;padding:10px 14px;margin-bottom:10px;font-size:.85rem;color:var(--pri);direction:ltr}
+.note{font-size:.75rem;color:var(--mut);line-height:1.7;margin:0 0 10px}
+#upg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:60;padding:20px}#upg.hidden{display:none}
+#upg .box{background:var(--sf);border-radius:22px;padding:20px;width:100%;max-width:380px;text-align:center}#upg p{color:var(--mut);font-size:.85rem;margin:8px 0 12px;line-height:1.7}
+#upg input{width:100%;padding:12px;border-radius:14px;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font-size:1rem;margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -110,12 +114,14 @@ form textarea::placeholder{color:var(--mut)}
 <div id="lock" class="hidden">
   <img src="logo.png" alt="Minelium AI">
   <h1 class="grad">Minelium AI</h1>
-  <p>مساعد ذكاء اصطناعي تسأله عن أي شي بحرية. فعّل باقتك بالكود اللي استلمته من الإدارة.</p>
+  <p>مساعد ذكاء اصطناعي تسأله عن أي شي بحرية. سجّل دخول بحساب Google وتحصل على <b>10 رسائل مجاناً كل يوم</b>، وتكدر تشترك بكود من القائمة ☰ بأي وقت.</p>
   <div class="plans">
+    <div class="plan"><b>🎁 مجاني — 10 رسائل يومياً</b><span>تنفتح لك أول ما تسجّل دخول، وتتجدد كل يوم.</span></div>
     <div class="plan"><b>⚡ Plus — حد يومي</b><span>عدد كردت (رسائل) خاص بيك يتجدد كل يوم.</span></div>
     <div class="plan"><b>⏳ Pro — اشتراك بمدة</b><span>تسأل براحتك ويظل اشتراكك شغّال لعدد أيام محدد.</span></div>
     <div class="plan"><b>♾️ Max — بلا حدود</b><span>أسئلة بدون حد يومي وبدون مدة تنتهي.</span></div>
   </div>
+<p class="note">🔒 تُحفظ محادثاتك على خوادمنا لتحسين الخدمة وحل المشاكل، وقد يراجعها مشرف التطبيق.</p>
 <div id="s1">
     <input id="name" placeholder="اسمك الأول" maxlength="40" autocomplete="given-name">
     <div class="err" id="err"></div>
@@ -161,10 +167,12 @@ form textarea::placeholder{color:var(--mut)}
     <button class="dbtn" id="newc2" type="button">✎ محادثة جديدة</button>
     <div id="clist"></div>
     <div id="dplan"></div>
+    <button class="dbtn" id="upgb" type="button">⭐ الاشتراك والباقات</button>
     <button class="dbtn" id="out" type="button" style="color:#ff8a80">⎋ تسجيل الخروج</button>
   </div>
 </div>
 
+<div id="upg" class="hidden"><div class="box"><b>⭐ الاشتراك بكود</b><p id="upgp"></p><input id="upgc" placeholder="XXXXX-XXXXX" maxlength="14" autocapitalize="characters" autocomplete="off" style="direction:ltr;text-align:center"><div class="err" id="upge"></div><button class="btn" id="upgg" type="button">🔑 تفعيل</button><button class="lnk" id="upgx" type="button">إغلاق</button></div></div>
 <script src="config.js"></script>
 <script>
 (function(){
@@ -186,13 +194,13 @@ form textarea::placeholder{color:var(--mut)}
 
   /* ── الباقات ── */
   function daysLeft(exp){ var ms=new Date(exp)-Date.now(); if(!exp||isNaN(ms)||ms<=0) return 'لحظات'; var d=Math.ceil(ms/86400000); return d===1?'يوم واحد':(d===2?'يومين':d+' يوم'); }
-  function planName(x){ return x.plan==='max'?'Max (بلا حدود)':(x.plan==='pro'?'Pro':'Plus'); }
+  function planName(x){ return x.plan==='max'?'Max (بلا حدود)':(x.plan==='pro'?'Pro':(x.plan==='free'?'مجاني':'Plus')); }
   function planLine(x){
     if(!x||!x.plan) return '';
     if(x.plan==='max') return '♾️ نوع الباقة: بلا حدود (Max)';
     if(x.plan==='pro') return '⏳ Pro • ينتهي اشتراكك بعد '+daysLeft(x.expires_at);
     var v=Number(x.value)||0, rem=Math.max(0,v-(Number(x.used_today)||0));
-    return '⚡ Plus • باقي لك '+rem+' كردت من '+v+' اليوم (يتجدد كل يوم)';
+    return (x.plan==='free'?'🎁 مجاني':'⚡ Plus')+' • باقي لك '+rem+' كردت من '+v+' اليوم (يتجدد كل يوم)';
   }
   function setSub(x){ sub=x; var l=planLine(x); $('plan').textContent=l.replace(/^\S+\s/,'').split('•')[0].trim(); $('dplan').textContent=l; var n=lsGet('minelium_name'); }
 
@@ -238,7 +246,7 @@ form textarea::placeholder{color:var(--mut)}
   }
   function saveHist(){
     hist=hist.slice(-60); var c=curChat();
-    if(!c){ c={id:Date.now(),t:'',ts:0,m:[]}; cur=c.id; }
+    if(!c){ c={id:cur||Date.now(),t:'',ts:0,m:[]}; cur=c.id; }
     c.m=hist; c.t=titleOf(hist); c.ts=Date.now();
     chats=[c].concat(chats.filter(function(z){return z!==c;})); persist(); renderList();
   }
@@ -315,7 +323,7 @@ form textarea::placeholder{color:var(--mut)}
       if(r&&typeof r.token==='string'&&r.token.length>=20){
         var prev=lsGet('minelium_name'); if(!nat&&prev!==name) chats=[]; cur=null; persist(); lsDel(K_HIST);
         token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name); sub=r; show('chat'); $('msgs').innerHTML=''; hist=[]; setSub(r); renderList();
-        addMsg('ok','✅ تم الاشتراك بباقة <b>'+planName(r)+'</b> — '+esc(planLine(r).replace(/^\S+\s/,''))+'<br>استمتع 🎉');
+        flashOk('✅ تم الاشتراك بباقة <b>'+planName(r)+'</b> — '+esc(planLine(r).replace(/^\S+\s/,''))+'<br>استمتع 🎉');
         welcome();
       }else{ err.textContent='❌ الكود غلط أو انتهت صلاحيته أو انستخدم قبل'; $('go').disabled=false; }
     }).catch(function(e){
@@ -372,12 +380,12 @@ form textarea::placeholder{color:var(--mut)}
     var d=addMsg('bot','<span class="dots"><span></span><span></span><span></span></span>');
     var h=hist.slice(-10);
     fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({q:q.slice(0,1500),history:h,full:true,token:token,image:im||undefined})})
+      body:JSON.stringify({q:q.slice(0,1500),history:h,full:true,token:token,cid:String(cur||(cur=Date.now())),image:im||undefined})})
     .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){
       if(r.status===403&&(j.error==='kicked'||j.error==='expired')){ d.remove(); lost(j.error); return; }
       if(r.status===429&&j.error==='limit'){
         if(j.sub) setSub(j.sub);
-        d.setText('⚡ خلصت كردتك لليوم. تتجدد باجر وتكدر تكمل، أو اطلب من الإدارة ترقية باقتك.'); return;
+        d.setText(sub&&sub.plan==='free'?'🎁 خلصت كردتك المجانية لليوم (10 رسائل). تتجدد باجر، أو اشترك هسه من القائمة ☰ ← «الاشتراك والباقات».':'⚡ خلصت كردتك لليوم. تتجدد باجر، أو اشترك بباقة أعلى من القائمة ☰.'); return;
       }
       if(!r.ok||!j.text) throw new Error(j.error||('HTTP '+r.status));
       if(j.sub) setSub(j.sub);
@@ -402,6 +410,21 @@ form textarea::placeholder{color:var(--mut)}
   var pre=['اكتب لي رسالة رسمية بخصوص: ','اشرح لي بشكل مبسّط: ','ساعدني ببرمجة: ','ترجم لي هذا النص: '];
   Array.prototype.forEach.call(document.querySelectorAll('.chip'),function(b,i){ b.onclick=function(){ $('in').value=pre[i]; $('in').focus(); }; });
   $('out').addEventListener('click',function(){ drawer(false); });
+
+
+  /* ── الاشتراك من القائمة + رسالة التفعيل تختفي بعد 5 ثواني ── */
+  function flashOk(h){ var m=addMsg('ok',h); setTimeout(function(){ m.style.transition='opacity .4s'; m.style.opacity='0'; setTimeout(function(){ m.remove(); },420); },5000); }
+  $('upgb').onclick=function(){ drawer(false); $('upgp').textContent=planLine(sub)||''; $('upgc').value=''; $('upge').textContent=''; $('upg').classList.remove('hidden'); };
+  $('upgx').onclick=function(){ $('upg').classList.add('hidden'); };
+  $('upgg').onclick=function(){
+    var code=$('upgc').value.trim().toUpperCase(); if(code.length<8){ $('upge').textContent='اكتب الكود كامل'; return; }
+    $('upgg').disabled=true;
+    rpc('ai_full_upgrade',{p_token:token,p_code:code}).then(function(r){
+      $('upgg').disabled=false;
+      if(r&&r.plan){ setSub(r); $('upg').classList.add('hidden'); flashOk('✅ تم الاشتراك بباقة <b>'+planName(r)+'</b> — '+esc(planLine(r).replace(/^\S+\s/,''))+'<br>استمتع 🎉'); }
+      else $('upge').textContent='❌ الكود غلط أو انتهت صلاحيته أو انستخدم قبل';
+    }).catch(function(){ $('upgg').disabled=false; $('upge').textContent='⚠️ تعذّر الاتصال، جرّب مرة ثانية'; });
+  };
 
   /* ── البداية ── */
   loadChats(); renderList();
