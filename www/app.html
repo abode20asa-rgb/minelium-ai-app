@@ -113,6 +113,21 @@ form textarea::placeholder{color:var(--mut)}
 .mi.on{border-color:var(--pri)}.mi.lock{opacity:.55}
 .mi img,.mi .ph{width:40px;height:40px;border-radius:12px;object-fit:cover;flex:none;background:var(--sf2);display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--pri)}
 .mi b{display:block;font-size:.95rem}.mi small{color:var(--mut);font-size:.75rem}.mi .lk{margin-inline-start:auto;font-size:.72rem;color:var(--mut);white-space:nowrap}
+#call{flex:0 0 42px}
+#vc{position:fixed;inset:0;z-index:60;background:radial-gradient(circle at 50% 38%,#16231d 0,#131314 64%);display:flex;flex-direction:column;align-items:center;justify-content:space-between;text-align:center;padding:calc(env(safe-area-inset-top,0px) + 30px) 24px calc(env(safe-area-inset-bottom,0px) + 36px)}
+#vc.hidden{display:none!important}
+#vct{font-weight:800;color:var(--pri);font-size:1.05rem}
+#vcm{display:flex;flex-direction:column;align-items:center;gap:26px;width:100%}
+#vco{width:170px;height:170px;border-radius:50%;border:0;cursor:pointer;background:radial-gradient(circle at 35% 30%,#d4f8e8,var(--pri2));box-shadow:0 0 60px rgba(155,227,195,.35);transition:transform .09s linear}
+#vc.think #vco{animation:vth 1.3s ease-in-out infinite;opacity:.8}
+#vc.speak #vco{animation:vsp 1s ease-in-out infinite}
+#vc.err #vco{background:radial-gradient(circle at 35% 30%,#ffd0cb,#ff8a80)}
+@keyframes vth{0%,100%{transform:scale(.9)}50%{transform:scale(1)}}
+@keyframes vsp{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+#vcs{font-weight:700;font-size:1.05rem;min-height:1.6em}
+#vcx{color:var(--mut);font-size:.88rem;line-height:1.7;max-width:420px;max-height:7.5em;overflow:hidden;min-height:3em}
+#vce{background:#d93025;color:#fff;border:0;border-radius:50%;width:70px;height:70px;font-size:1.7rem;cursor:pointer}
+#vch{color:var(--mut);font-size:.75rem;margin-bottom:14px}
 </style>
 </head>
 <body>
@@ -165,6 +180,7 @@ form textarea::placeholder{color:var(--mut)}
   <div id="prev" class="hidden"><img id="pimg" alt=""><button id="prm" type="button" aria-label="إزالة الصورة">✕</button></div>
   <form id="f">
     <button class="ic" id="att" type="button" aria-label="إرفاق صورة">📎</button>
+    <button class="ic hidden" id="call" type="button" aria-label="مكالمة صوتية">📞</button>
     <input type="file" id="file" accept="image/*" class="hidden">
     <textarea id="in" rows="1" placeholder="اسأل Minelium AI"></textarea>
     <button id="send" type="submit" aria-label="إرسال">↑</button>
@@ -183,6 +199,11 @@ form textarea::placeholder{color:var(--mut)}
 
 <div id="upg" class="hidden"><div class="box"><b>⭐ اشتراك — أدخل الكود</b><p id="upgp"></p><input id="upgc" placeholder="XXXXX-XXXXX" maxlength="14" autocapitalize="characters" autocomplete="off" style="direction:ltr;text-align:center"><div class="err" id="upge"></div><button class="btn" id="upgg" type="button">🔑 تفعيل</button><button class="lnk" id="upgx" type="button">إغلاق</button></div></div>
 <div id="msheet" class="hidden"><div class="box"><b>اختر النموذج</b><div id="mlist"></div><div class="note" id="mnote"></div><button class="lnk" id="mx" type="button">إغلاق</button></div></div>
+<div id="vc" class="hidden">
+  <div id="vct">🎙️ مكالمة صوتية</div>
+  <div id="vcm"><button id="vco" type="button" aria-label="المايك"></button><div id="vcs"></div><div id="vcx"></div></div>
+  <div><div id="vch">المس الدائرة: لإرسال كلامك فوراً، أو لتخطي رد الذكاء</div><button id="vce" type="button" aria-label="إنهاء المكالمة">✕</button></div>
+</div>
 <script src="config.js"></script>
 <script>
 (function(){
@@ -291,7 +312,7 @@ form textarea::placeholder{color:var(--mut)}
   function parseUrl(u){ var i=u.indexOf('#'), q=i>=0?u.slice(i+1):(u.indexOf('?')>=0?u.split('?')[1]:''), o={}; q.split('&').forEach(function(kv){ var a=kv.split('='); if(a[0]) o[a[0]]=decodeURIComponent((a[1]||'').replace(/\+/g,' ')); }); return o; }
   function jwtInfo(t){ try{ var b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'), j=JSON.parse(decodeURIComponent(escape(atob(b)))), m=j.user_metadata||{}; return {email:j.email||'',name:m.given_name||String(m.full_name||m.name||'').split(' ')[0]||''}; }catch(e){ return {email:'',name:''}; } }
   function enterWith(r,name){ try{ loadModels(); }catch(e){}
-    token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name||r.name||gUser.name||''); sub=r; show('chat'); loadHist(); setSub(r); renderList();
+    token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name||r.name||gUser.name||''); sub=r; show('chat'); loadHist(); setSub(r); renderList(); try{ voiceProbe(); }catch(e){}
   }
   function onAuth(url){
     var q=parseUrl(url); try{ P().Browser.close(); }catch(e){}
@@ -437,7 +458,7 @@ form textarea::placeholder{color:var(--mut)}
     $('upgg').disabled=true;
     rpc('ai_full_upgrade',{p_token:token,p_code:code}).then(function(r){
       $('upgg').disabled=false;
-      if(r&&r.plan){ setSub(r); $('upg').classList.add('hidden'); flashOk('✅ تم الاشتراك بباقة <b>'+planName(r)+'</b> — '+esc(planLine(r).replace(/^\S+\s/,''))+'<br>استمتع 🎉'); }
+      if(r&&r.plan){ setSub(r); try{ voiceProbe(); }catch(e){} $('upg').classList.add('hidden'); flashOk('✅ تم الاشتراك بباقة <b>'+planName(r)+'</b> — '+esc(planLine(r).replace(/^\S+\s/,''))+'<br>استمتع 🎉'); }
       else $('upge').textContent='❌ الكود غلط أو انتهت صلاحيته أو انستخدم قبل';
     }).catch(function(){ $('upgg').disabled=false; $('upge').textContent='⚠️ تعذّر الاتصال، جرّب مرة ثانية'; });
   };
@@ -478,11 +499,144 @@ form textarea::placeholder{color:var(--mut)}
   $('mx').onclick=function(){ $('msheet').classList.add('hidden'); };
   try{ loadModels(); }catch(e){}
 
+  /* ── المكالمة الصوتية: يسمعك (مايك + API تحويل صوت لنص) ← يرد الذكاء ← يحجي الرد (API صوت أو صوت التلفون) ── */
+  var SIL='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+  var vi=null, vc={on:false,gen:0,st:'',stream:null,ctx:null,an:null,rec:null,raf:0,au:null,noise:0.01,force:null};
+  function voiceProbe(){
+    if(!token||!configured()||!navigator.mediaDevices||!window.MediaRecorder) return;
+    fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice:'info',token:token})})
+      .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){
+        if(r.ok&&j.enabled&&j.stt) vi=j; else if(r.status===403&&j.error==='voice_locked') vi={locked:true}; else vi=null;
+        $('call').classList.toggle('hidden',!vi);
+      }); }).catch(function(){});
+  }
+  function vok(g){ return vc.on&&g===vc.gen; }
+  function vcState(st,txt){ var c=$('vc').classList; ['listen','think','speak','err'].forEach(function(x){ c.remove(x); }); c.add(st); vc.st=st; $('vcs').textContent=txt; $('vco').style.transform=''; }
+  function pickMime(){ var l=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus']; for(var i=0;i<l.length;i++){ try{ if(MediaRecorder.isTypeSupported(l[i])) return l[i]; }catch(e){} } return ''; }
+  function vpost(b){
+    return fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})
+      .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){
+        if(!r.ok){ var e=new Error(j.error||('HTTP '+r.status)); e.status=r.status; e.sub=j.sub; throw e; } return j; }); });
+  }
+  $('call').onclick=function(){
+    if(vc.on||busy||!vi) return;
+    if(vi.locked){ alert('🎙️ المكالمة الصوتية متاحة لباقات أعلى — اشترك من القائمة ☰ ← «اشتراك».'); return; }
+    vc.au=vc.au||new Audio(); try{ vc.au.src=SIL; var pp=vc.au.play(); if(pp&&pp.catch) pp.catch(function(){}); }catch(e){} /* نفتح الصوت بلمسة المستخدم حتى يسمح الجهاز بتشغيل الرد لاحقاً */
+    navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}}).then(function(st){
+      var AC=window.AudioContext||window.webkitAudioContext;
+      vc.stream=st; vc.on=true; vc.noise=0.01; vc.ctx=new AC(); vc.an=vc.ctx.createAnalyser(); vc.an.fftSize=1024;
+      vc.ctx.createMediaStreamSource(st).connect(vc.an); if(vc.ctx.resume) vc.ctx.resume();
+      $('vcx').textContent=''; $('vc').classList.remove('hidden'); listen();
+    }).catch(function(){ alert('اسمح للتطبيق باستعمال المايك (من إعدادات التلفون ← التطبيقات ← Minelium ← الأذونات) وجرّب مرة ثانية.'); });
+  };
+  function listen(){
+    if(!vc.on) return;
+    var g=++vc.gen; vcState('listen','أسمعك... احجي');
+    var mt=pickMime(), rec;
+    try{ rec=new MediaRecorder(vc.stream,mt?{mimeType:mt,audioBitsPerSecond:24000}:{audioBitsPerSecond:24000}); }catch(e){ endCall(); alert('تعذّر تشغيل التسجيل على هذا الجهاز'); return; }
+    var chunks=[], voiced=0, speech=false, last=0, t0=Date.now(), stopped=false, buf=new Uint8Array(vc.an.fftSize);
+    vc.rec=rec;
+    rec.ondataavailable=function(e){ if(e.data&&e.data.size) chunks.push(e.data); };
+    rec.onstop=function(){
+      cancelAnimationFrame(vc.raf);
+      if(!vok(g)) return;
+      if(!speech){ listen(); return; }
+      turn(new Blob(chunks,{type:rec.mimeType||mt||'audio/webm'}),g);
+    };
+    function stop(){ if(stopped) return; stopped=true; try{ rec.stop(); }catch(e){} }
+    vc.force=function(){ if(speech) stop(); };
+    rec.start();
+    (function loop(){
+      if(!vok(g)||stopped) return;
+      vc.an.getByteTimeDomainData(buf); var sum=0; for(var i=0;i<buf.length;i++){ var x=(buf[i]-128)/128; sum+=x*x; }
+      var rms=Math.sqrt(sum/buf.length), thr=Math.max(0.035,vc.noise*2.6), now=Date.now();
+      if(rms>thr){ voiced++; last=now; if(voiced>=6) speech=true; } else { voiced=Math.max(0,voiced-2); if(!speech) vc.noise=vc.noise*0.97+rms*0.03; }
+      $('vco').style.transform='scale('+(1+Math.min(0.35,rms*3))+')';
+      if(speech&&(now-last>1300||now-t0>28000)) stop();
+      else if(!speech&&now-t0>15000) stop();
+      if(!stopped) vc.raf=requestAnimationFrame(loop);
+    })();
+  }
+  function turn(blob,g){
+    vcState('think','أفكّر...');
+    var fr=new FileReader();
+    fr.onload=function(){
+      vpost({voice:'stt',token:token,audio:fr.result}).then(function(j){
+        if(!vok(g)) return;
+        var q=String(j.text||'').trim();
+        if(q.length<2){ listen(); return; }
+        $('vcx').textContent='🗣️ '+q;
+        return chatTurn(q,g);
+      }).catch(function(e){ if(vok(g)) vcErr(e); });
+    };
+    fr.readAsDataURL(blob);
+  }
+  function chatTurn(q,g){
+    busy=true;
+    return vpost({q:q.slice(0,1500),history:hist.slice(-10),full:true,token:token,model:(curModel()||{}).id,cid:String(cur||(cur=Date.now())),spoken:true})
+      .then(function(j){
+        busy=false; if(j.sub) setSub(j.sub);
+        var text=String(j.text||'');
+        clearHero(); addMsg('me',q,true); addMsg('bot','').setBody(md(text));
+        hist.push({r:'user',t:q.slice(0,1500)}); hist.push({r:'bot',t:text.slice(0,3000)}); saveHist();
+        if(!vok(g)) return;
+        $('vcx').textContent='🤖 '+text.replace(/\s+/g,' ').slice(0,220);
+        speak(text,g);
+      })
+      .catch(function(e){ busy=false; if(vok(g)) vcErr(e); });
+  }
+  function vcErr(e){
+    var m=String((e&&e.message)||'');
+    if(e&&e.status===403&&(m==='kicked'||m==='expired')){ endCall(); lost(m); return; }
+    if(e&&e.status===429&&m==='limit'){ if(e.sub) setSub(e.sub); endCall(); alert('⚡ خلصت كردتك لليوم. تتجدد باجر، أو اشترك بباقة أعلى من القائمة ☰.'); return; }
+    if(m==='model_locked'){ endCall(); alert('🔒 هذا النموذج غير متاح لباقتك. اختر نموذج ثاني من أعلى الشاشة.'); return; }
+    if(m==='voice_locked'||m==='voice_off'){ endCall(); alert('المكالمة الصوتية غير متاحة حالياً.'); voiceProbe(); return; }
+    vcState('err','⚠️ '+m.slice(0,90)); var g=vc.gen; setTimeout(function(){ if(vok(g)) listen(); },2400);
+  }
+  function clean(t){ return String(t).replace(/```[\s\S]*?```/g,' ').replace(/\[([^\]]*)\]\([^)]*\)/g,'$1').replace(/https?:\/\/\S+/g,'').replace(/[`*_#>|~]/g,'').replace(/\s+/g,' ').trim().slice(0,600); }
+  function synth(t,done){
+    if(!window.speechSynthesis||!window.SpeechSynthesisUtterance){ done(); return; }
+    try{
+      speechSynthesis.cancel(); var u=new SpeechSynthesisUtterance(t), fin=false; u.lang='ar-SA';
+      var f=function(){ if(fin) return; fin=true; done(); }; u.onend=f; u.onerror=f; setTimeout(f,Math.max(4000,t.length*140));
+      speechSynthesis.speak(u);
+    }catch(e){ done(); }
+  }
+  function speak(text,g){
+    var t=clean(text); if(!t){ listen(); return; }
+    vcState('speak','أحجي...');
+    var done=function(){ if(vok(g)) listen(); };
+    if(vi&&vi.tts){
+      vpost({voice:'tts',token:token,text:t}).then(function(j){
+        if(!vok(g)) return;
+        var a=vc.au; a.onended=done; a.onerror=function(){ if(vok(g)) synth(t,done); };
+        a.src=j.audio; var p=a.play(); if(p&&p.catch) p.catch(function(){ if(vok(g)) synth(t,done); });
+      }).catch(function(){ if(vok(g)) synth(t,done); });
+    } else synth(t,done);
+  }
+  function endCall(){
+    vc.on=false; vc.gen++; cancelAnimationFrame(vc.raf);
+    try{ if(vc.rec&&vc.rec.state!=='inactive') vc.rec.stop(); }catch(e){}
+    try{ if(vc.stream) vc.stream.getTracks().forEach(function(t){ t.stop(); }); }catch(e){}
+    try{ if(vc.ctx) vc.ctx.close(); }catch(e){}
+    try{ if(vc.au){ vc.au.onended=null; vc.au.onerror=null; vc.au.pause(); } }catch(e){}
+    try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(e){}
+    vc.stream=null; vc.ctx=null; vc.an=null; vc.rec=null;
+    $('vc').classList.add('hidden');
+  }
+  $('vce').onclick=endCall;
+  $('vco').onclick=function(){
+    if(!vc.on) return;
+    if(vc.st==='listen'){ if(vc.force) vc.force(); }
+    else if(vc.st==='speak'){ try{ if(vc.au) vc.au.pause(); if(window.speechSynthesis) speechSynthesis.cancel(); }catch(e){} listen(); }
+  };
+  document.addEventListener('visibilitychange',function(){ if(document.hidden&&vc.on) endCall(); });
+
   /* ── البداية ── */
   loadChats(); renderList();
   token=lsGet(K_TOKEN);
   if(!token){ show('lock'); step(gmode()?1:2); return; }
-  show('chat'); loadHist();
+  show('chat'); loadHist(); try{ voiceProbe(); }catch(e){}
   if(configured()) rpc('ai_full_check',{p_token:token}).then(function(r){
     if(r&&r.ok===false){ lost(r.reason); return; }
     if(r&&r.ok) setSub(r);
