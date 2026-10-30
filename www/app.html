@@ -89,6 +89,8 @@ form textarea::placeholder{color:var(--mut)}
 #prev img{width:56px;height:56px;object-fit:cover;border-radius:12px}
 #prm{background:var(--sf2);color:var(--ink);border:0;border-radius:50%;width:30px;height:30px;cursor:pointer}
 .mimg{display:block;max-width:100%;max-height:220px;border-radius:14px;margin-bottom:8px}
+.gimg{display:block;max-width:100%;border-radius:14px;margin-top:10px}
+.gdl{margin-top:8px;background:#1e1f20;color:#9be3c3;border:1px solid #333;border-radius:10px;padding:7px 12px;font:inherit;font-size:13px;cursor:pointer}
 #att{flex:0 0 42px}
 #clist{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:4px}
 #clist small{color:var(--mut);font-size:.75rem;padding:6px 8px}
@@ -411,6 +413,21 @@ form textarea::placeholder{color:var(--mut)}
     })();
   }
 
+  /* ── عرض الصورة المولّدة (نموذج Gemini) ── */
+  function addGenImg(d,src){
+    var b=d.querySelector('.bd')||d; var w=document.createElement('div'); w.className='gen';
+    var im=document.createElement('img'); im.src=src; im.className='gimg';
+    var bt=document.createElement('button'); bt.type='button'; bt.className='gdl'; bt.textContent='⬇️ حفظ / مشاركة الصورة';
+    bt.onclick=function(){
+      fetch(src).then(function(r){return r.blob();}).then(function(bl){
+        var f=new File([bl],'minelium-'+Date.now()+'.png',{type:bl.type||'image/png'});
+        if(navigator.canShare&&navigator.canShare({files:[f]})) return navigator.share({files:[f]});
+        var a=document.createElement('a'); a.href=URL.createObjectURL(bl); a.download=f.name; document.body.appendChild(a); a.click(); a.remove();
+      }).catch(function(){});
+    };
+    w.appendChild(im); w.appendChild(bt); b.appendChild(w); $('msgs').scrollTop=$('msgs').scrollHeight;
+  }
+
   /* ── الإرسال ── */
   function send(q){
     if(busy||(!q&&!img)) return; busy=true; $('send').disabled=true; clearHero();
@@ -428,10 +445,10 @@ form textarea::placeholder{color:var(--mut)}
         if(j.sub) setSub(j.sub);
         d.setText(sub&&sub.plan==='free'?'🙂 خلصت كردتك اليومية (10 رسائل). تتجدد باجر، أو اشترك هسه من القائمة ☰ ← «اشتراك».':'⚡ خلصت كردتك لليوم. تتجدد باجر، أو اشترك بباقة أعلى من القائمة ☰.'); return;
       }
-      if(!r.ok||!j.text) throw new Error(j.error||('HTTP '+r.status));
+      if(!r.ok||(!j.text&&!j.img)) throw new Error(j.error||('HTTP '+r.status));
       if(j.sub) setSub(j.sub);
-      hist.push({r:'user',t:(im?'📷 [صورة] ':'')+q.slice(0,1500)}); hist.push({r:'bot',t:String(j.text).slice(0,3000)}); saveHist();
-      return new Promise(function(res){ typeOut(d,String(j.text),res); });
+      hist.push({r:'user',t:(im?'📷 [صورة] ':'')+q.slice(0,1500)}); hist.push({r:'bot',t:String(j.text||'🖼️ [صورة مولّدة]').slice(0,3000)}); saveHist();
+      return new Promise(function(res){ if(j.text) typeOut(d,String(j.text),res); else { d.setBody(''); res(); } }).then(function(){ if(j.img) addGenImg(d,j.img); });
     }); })
     .catch(function(e){ d.setText('⚠️ صار خطأ بالاتصال: '+String((e&&e.message)||'').slice(0,120)+' — جرّب مرة ثانية.'); })
     .then(function(){ busy=false; $('send').disabled=false; });
