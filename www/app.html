@@ -537,7 +537,7 @@ form textarea::placeholder{color:var(--mut)}
     if(!vc.on) return;
     var g=++vc.gen; vcState('listen','أسمعك... احجي');
     var mt=pickMime(), rec;
-    try{ rec=new MediaRecorder(vc.stream,mt?{mimeType:mt,audioBitsPerSecond:24000}:{audioBitsPerSecond:24000}); }catch(e){ endCall(); alert('تعذّر تشغيل التسجيل على هذا الجهاز'); return; }
+    try{ rec=new MediaRecorder(vc.stream,mt?{mimeType:mt,audioBitsPerSecond:48000}:{audioBitsPerSecond:48000}); }catch(e){ endCall(); alert('تعذّر تشغيل التسجيل على هذا الجهاز'); return; }
     var chunks=[], voiced=0, speech=false, last=0, t0=Date.now(), stopped=false, buf=new Uint8Array(vc.an.fftSize);
     vc.rec=rec;
     rec.ondataavailable=function(e){ if(e.data&&e.data.size) chunks.push(e.data); };
