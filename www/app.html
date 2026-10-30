@@ -431,6 +431,16 @@ form textarea::placeholder{color:var(--mut)}
     var im=document.createElement('img'); im.src=src; im.className='gimg';
     var bt=document.createElement('button'); bt.type='button'; bt.className='gdl'; bt.textContent='⬇️ حفظ / مشاركة الصورة';
     bt.onclick=function(){
+      var Fs=P().Filesystem, Sh=P().Share, b64=String(src).split(',')[1], nm='minelium-'+Date.now()+'.png', orig='⬇️ حفظ / مشاركة الصورة';
+      if(Fs&&Sh&&b64){ /* داخل التطبيق (APK): يحفظ بمجلد Documents/Minelium ويفتح قائمة المشاركة (منها تكدر تحفظ بالمعرض أو ترسل) */
+        bt.disabled=true;
+        Fs.writeFile({path:'Minelium/'+nm,data:b64,directory:'DOCUMENTS',recursive:true}).then(function(){ bt.textContent='✅ انحفظت بـ Documents/Minelium'; },function(){})
+        .then(function(){ return Fs.writeFile({path:nm,data:b64,directory:'CACHE'}); })
+        .then(function(r){ return Sh.share({files:[r.uri],dialogTitle:'حفظ / مشاركة الصورة'}); })
+        .catch(function(){ if(bt.textContent===orig) bt.textContent='⚠️ تعذّر الحفظ'; })
+        .then(function(){ bt.disabled=false; setTimeout(function(){ bt.textContent=orig; },3500); });
+        return;
+      }
       fetch(src).then(function(r){return r.blob();}).then(function(bl){
         var f=new File([bl],'minelium-'+Date.now()+'.png',{type:bl.type||'image/png'});
         if(navigator.canShare&&navigator.canShare({files:[f]})) return navigator.share({files:[f]});
