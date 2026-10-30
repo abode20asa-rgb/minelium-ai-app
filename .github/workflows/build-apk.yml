@@ -14,6 +14,9 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - run: npm install
       - run: npx cap add android
+      - name: إعداد Firebase للإشعارات (ملف google-services.json بجذر المستودع)
+        run: |
+          if [ -f google-services.json ]; then cp google-services.json android/app/google-services.json; echo "firebase ready"; else echo "no google-services.json - push disabled"; fi
       - name: السماح برجوع تسجيل Google والمايك للمكالمة الصوتية
         run: |
           python3 - <<'PY'
@@ -23,7 +26,7 @@ jobs:
           assert '</activity>' in s
           if 'android:scheme="minelium"' not in s:
               s=s.replace('</activity>', f+'</activity>', 1)
-          for pm in ('android.permission.RECORD_AUDIO','android.permission.MODIFY_AUDIO_SETTINGS'):
+          for pm in ('android.permission.RECORD_AUDIO','android.permission.MODIFY_AUDIO_SETTINGS','android.permission.POST_NOTIFICATIONS'):
               if pm not in s:
                   s=s.replace('<application','<uses-permission android:name="'+pm+'" />\n    <application',1)
           open(p,'w',encoding='utf-8').write(s)
