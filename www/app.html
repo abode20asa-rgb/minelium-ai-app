@@ -266,7 +266,7 @@ form textarea::placeholder{color:var(--mut)}
   function lost(reason){
     token=null; sub=null; lsDel(K_TOKEN);
     errEl().textContent=reason==='expired'?'⏳ انتهى اشتراكك. للتجديد اطلب كود جديد من الإدارة.':'🔒 انسحبت صلاحية اشتراكك. اطلب كود جديد من الإدارة.';
-    $('go').disabled=false; show('lock'); step(native()?1:2);
+    $('go').disabled=false; show('lock'); step(gmode()?1:2);
   }
 
   /* ── التفعيل ── */
@@ -274,8 +274,10 @@ form textarea::placeholder{color:var(--mut)}
   var SCHEME='minelium://auth', jwt=null, gUser={email:'',name:''};
   function P(){ return (window.Capacitor&&window.Capacitor.Plugins)||{}; }
   function native(){ var p=P(); return !!(p.Browser&&p.App); }
+  function webg(){ return !native() && /^https?:$/.test(location.protocol); }
+  function gmode(){ return native()||webg(); }
   function step(n){ $('s1').classList.toggle('hidden',n!==1); $('s2').classList.toggle('hidden',n!==2); }
-  function errEl(){ return native()?$('err'):$('err2'); }
+  function errEl(){ return gmode()?$('err'):$('err2'); }
   function parseUrl(u){ var i=u.indexOf('#'), q=i>=0?u.slice(i+1):(u.indexOf('?')>=0?u.split('?')[1]:''), o={}; q.split('&').forEach(function(kv){ var a=kv.split('='); if(a[0]) o[a[0]]=decodeURIComponent((a[1]||'').replace(/\+/g,' ')); }); return o; }
   function jwtInfo(t){ try{ var b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'), j=JSON.parse(decodeURIComponent(escape(atob(b)))), m=j.user_metadata||{}; return {email:j.email||'',name:m.given_name||String(m.full_name||m.name||'').split(' ')[0]||''}; }catch(e){ return {email:'',name:''}; } }
   function enterWith(r,name){
@@ -297,10 +299,11 @@ form textarea::placeholder{color:var(--mut)}
   $('gg').onclick=function(){
     var err=$('err'); err.textContent='';
     if(!configured()){ err.textContent='⚠️ إعدادات التطبيق ناقصة (config.js)'; return; }
-    if(!native()){ err.textContent='⚠️ حدّث التطبيق لآخر نسخة حتى يشتغل تسجيل Google'; return; }
+    if(!gmode()){ err.textContent='⚠️ حدّث التطبيق لآخر نسخة حتى يشتغل تسجيل Google'; return; }
     var n=$('name').value.trim(); if(n) lsSet('minelium_pending_name',n);
     $('gg').disabled=true; setTimeout(function(){ $('gg').disabled=false; },8000);
-    P().Browser.open({url:C.SUPABASE_URL+'/auth/v1/authorize?provider=google&prompt=select_account&redirect_to='+encodeURIComponent(SCHEME)});
+    if(native()) P().Browser.open({url:C.SUPABASE_URL+'/auth/v1/authorize?provider=google&prompt=select_account&redirect_to='+encodeURIComponent(SCHEME)});
+    else location.href=C.SUPABASE_URL+'/auth/v1/authorize?provider=google&prompt=select_account&redirect_to='+encodeURIComponent(location.origin+location.pathname);
   };
   $('other').onclick=function(){ jwt=null; $('err').textContent=''; step(1); };
   if(native()){
@@ -308,13 +311,15 @@ form textarea::placeholder{color:var(--mut)}
       P().App.addListener('appUrlOpen',function(e){ if(e&&e.url&&e.url.indexOf('minelium://')===0) onAuth(e.url); });
       P().App.getLaunchUrl().then(function(r){ if(r&&r.url&&r.url.indexOf('minelium://')===0) onAuth(r.url); });
     }catch(e){}
+  }else if(webg()){
+    if(/access_token=|error=/.test(location.hash)){ var hh=location.href; try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){} setTimeout(function(){ onAuth(hh); },0); }
   }else{ $('phone').classList.remove('hidden'); $('who').classList.add('hidden'); $('other').classList.add('hidden'); }
 
   /* ── التفعيل بالكود ── */
   $('go').onclick=function(){
     var err=$('err2'); err.textContent='';
     if(!configured()){ err.textContent='⚠️ إعدادات التطبيق ناقصة (config.js)'; return; }
-    var name=$('name2').value.trim(), code=$('code').value.trim().toUpperCase(), nat=native();
+    var name=$('name2').value.trim(), code=$('code').value.trim().toUpperCase(), nat=gmode();
     if(name.length<2){ err.textContent='اكتب اسمك'; return; }
     if(code.length<8){ err.textContent='اكتب الكود كامل'; return; }
     if(nat&&!jwt){ step(1); $('err').textContent='سجّل دخول بـ Google أول'; return; }
@@ -399,7 +404,7 @@ form textarea::placeholder{color:var(--mut)}
   $('in').addEventListener('input',function(){ this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,120)+'px'; });
   $('in').addEventListener('keydown',function(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('f').requestSubmit(); } });
   $('newc').onclick=function(){ if(busy) return; cur=null; persist(); loadHist(); renderList(); };
-  $('out').onclick=function(){ if(confirm('تسجيل الخروج من هذا الجهاز؟ تحتاج كود جديد للرجوع.')){ token=null; sub=null; chats=[]; cur=null; lsDel(K_TOKEN); lsDel(K_CHATS); lsDel(K_CUR); lsDel('minelium_name'); renderList(); $('go').disabled=false; $('err').textContent=''; $('err2').textContent=''; jwt=null; show('lock'); step(native()?1:2); } };
+  $('out').onclick=function(){ if(confirm('تسجيل الخروج من هذا الجهاز؟ تحتاج كود جديد للرجوع.')){ token=null; sub=null; chats=[]; cur=null; lsDel(K_TOKEN); lsDel(K_CHATS); lsDel(K_CUR); lsDel('minelium_name'); renderList(); $('go').disabled=false; $('err').textContent=''; $('err2').textContent=''; jwt=null; show('lock'); step(gmode()?1:2); } };
 
   /* ── القائمة والاقتراحات ── */
   var chat=$('chat');
@@ -429,7 +434,7 @@ form textarea::placeholder{color:var(--mut)}
   /* ── البداية ── */
   loadChats(); renderList();
   token=lsGet(K_TOKEN);
-  if(!token){ show('lock'); step(native()?1:2); return; }
+  if(!token){ show('lock'); step(gmode()?1:2); return; }
   show('chat'); loadHist();
   if(configured()) rpc('ai_full_check',{p_token:token}).then(function(r){
     if(r&&r.ok===false){ lost(r.reason); return; }
