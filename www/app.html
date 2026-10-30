@@ -57,6 +57,18 @@ input:focus{border-color:var(--pri2)}
 .m pre{background:#0b0c0d;color:#e6efe9;padding:12px;border-radius:14px;overflow:auto;direction:ltr;text-align:left;margin:8px 0;font-size:.8rem;white-space:pre}
 .dots span{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--pri);margin:0 2px;animation:b 1s infinite}
 .dots span:nth-child(2){animation-delay:.15s}.dots span:nth-child(3){animation-delay:.3s}
+.ldrow{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:.9rem;min-height:26px}
+.spn{position:relative;width:22px;height:22px;flex:0 0 22px;animation:ldrot 1.6s linear infinite}
+.spn i{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--ink);opacity:.85}
+.spn i:nth-child(1){top:0;left:8px}.spn i:nth-child(2){bottom:1px;left:1px;opacity:.55}.spn i:nth-child(3){bottom:1px;right:1px;opacity:.7}
+@keyframes ldrot{to{transform:rotate(360deg)}}
+.ldtx{transition:opacity .25s}.ldtx.sw{opacity:0}
+.imgph{position:relative;overflow:hidden;width:min(100%,300px);aspect-ratio:1/1;margin-top:12px;border-radius:26px;background:linear-gradient(135deg,#1b1b1b,#121212)}
+.imgph b{position:absolute;top:-30%;left:0;width:55%;height:160%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.09),transparent);transform:translateX(260%) rotate(18deg);animation:ldA 3.2s ease-in-out infinite}
+.imgph b+b{transform:translateX(-160%) rotate(18deg);animation:ldB 3.2s ease-in-out infinite;animation-delay:1.6s}
+@keyframes ldA{0%{transform:translateX(260%) rotate(18deg)}55%,100%{transform:translateX(-160%) rotate(18deg)}}
+@keyframes ldB{0%{transform:translateX(-160%) rotate(18deg)}55%,100%{transform:translateX(260%) rotate(18deg)}}
+
 @keyframes b{0%,80%,100%{opacity:.25}40%{opacity:1}}
 .fade{animation:f .35s ease}
 @keyframes f{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -428,17 +440,47 @@ form textarea::placeholder{color:var(--mut)}
     w.appendChild(im); w.appendChild(bt); b.appendChild(w); $('msgs').scrollTop=$('msgs').scrollHeight;
   }
 
+
+  /* ── مؤشر الانتظار: كلمات تتبدل حسب نوع الشغلة + مربع الصورة المتحرك ── */
+  function wantsImg(q){
+    var t=String(q||'').toLowerCase().replace(/[\u064B-\u065F\u0640]/g,'').replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه');
+    if(/(كيف|شلون|ليش|لماذا|اشرح|شرح|طريقه|how to|how do|how can|why|explain|برنامج|تطبيق|موقع)/.test(t)) return false;
+    if(/(^|\s)(ارسم|ارسمي|ارسملي|صمملي|draw|imagine)(\s|$)/.test(t)) return true;
+    return new RegExp('(?:^|\\s)(?:ارسم|رسم|صمم|سوي|سويلي|اصنع|انشي|ولد|اعمل|جيب|عطيني|اعطني|ابي|اريد|دزلي|generate|create|make|design|give me|show me)\\S*(?:\\s+\\S+){0,6}?\\s+(?:صوره|صور|رسمه|لوغو|لوجو|شعار|بوستر|ايقونه|خلفيه|تصميم|بورتريه|image|picture|photo|logo|poster|wallpaper|portrait|illustration|icon)(?:\\s|$|[.,!؟?،])').test(t);
+  }
+  function stSteps(q,hasImg,isImg){
+    if(isImg) return ['جارٍ إنشاء صورتك'];
+    if(hasImg) return ['جار فحص الصورة','جار فهم التفاصيل','جار تجهيز الرد','جار الكتابة'];
+    var t=String(q||'').toLowerCase();
+    if(/(اخبار|أخبار|سعر|اسعار|أسعار|نتيجه|نتيجة|اليوم|الان|الآن|اخر|آخر|حاليا|حالياً|news|price|today|latest|score)/.test(t)) return ['جار البحث بالإنترنت','جار قراءة النتائج','جار تجهيز الرد','جار الكتابة'];
+    if(/(كود|برمج|code|function|html|css|python|javascript|sql|bug|خطا|خطأ)/.test(t)) return ['جار فهم المشكلة','جار كتابة الكود','جار مراجعة الكود','جار تجهيز الرد'];
+    if(/(ترجم|ترجمه|translate)/.test(t)) return ['جار فهم النص','جار الترجمة','جار تدقيق الصياغة'];
+    return ['جار التفكير','جار تحليل سؤالك','جار تجهيز الرد','جار الكتابة'];
+  }
+  function startStatus(d,q,hasImg,isImg){
+    var steps=stSteps(q,hasImg,isImg), i=0, timer=null;
+    d.setBody('<div class="ldrow"><span class="spn"><i></i><i></i><i></i></span><span class="ldtx" id="ldtx"></span></div>'+(isImg?'<div class="imgph"><b></b><b></b></div>':''));
+    var tx=d.querySelector('.ldtx'); if(tx) tx.textContent=steps[0];
+    if(steps.length>1) timer=setInterval(function(){
+      i=Math.min(i+1,steps.length-1); if(!tx) return; tx.classList.add('sw');
+      setTimeout(function(){ tx.textContent=steps[i]; tx.classList.remove('sw'); },250);
+      if(i===steps.length-1){ clearInterval(timer); timer=null; }
+    },2800);
+    return function(){ if(timer){ clearInterval(timer); timer=null; } };
+  }
+
   /* ── الإرسال ── */
   function send(q){
     if(busy||(!q&&!img)) return; busy=true; $('send').disabled=true; clearHero();
     var im=img; clearImg(); if(!q) q='اشرح لي هذه الصورة.';
     var mm=addMsg('me',q,true);
     if(im){ var t=document.createElement('img'); t.src=im; t.className='mimg'; mm.insertBefore(t,mm.firstChild); }
-    var d=addMsg('bot','<span class="dots"><span></span><span></span><span></span></span>');
+    var d=addMsg('bot',''); var stopL=startStatus(d,q,!!im,!im&&wantsImg(q));
     var h=hist.slice(-10);
     fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({q:q.slice(0,1500),history:h,full:true,token:token,model:(curModel()||{}).id,cid:String(cur||(cur=Date.now())),image:im||undefined})})
     .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){
+      stopL();
       if(r.status===403&&(j.error==='kicked'||j.error==='expired')){ d.remove(); lost(j.error); return; }
       if(r.status===403&&j.error==='model_locked'){ d.setText('🔒 هذا النموذج غير متاح لباقتك الحالية. اختر نموذج ثاني من أعلى الشاشة، أو اشترك من القائمة ☰.'); return; }
       if(r.status===429&&j.error==='limit'){
@@ -450,7 +492,7 @@ form textarea::placeholder{color:var(--mut)}
       hist.push({r:'user',t:(im?'📷 [صورة] ':'')+q.slice(0,1500)}); hist.push({r:'bot',t:String(j.text||'🖼️ [صورة مولّدة]').slice(0,3000)}); saveHist();
       return new Promise(function(res){ if(j.text) typeOut(d,String(j.text),res); else { d.setBody(''); res(); } }).then(function(){ if(j.img) addGenImg(d,j.img); });
     }); })
-    .catch(function(e){ d.setText('⚠️ صار خطأ بالاتصال: '+String((e&&e.message)||'').slice(0,120)+' — جرّب مرة ثانية.'); })
+    .catch(function(e){ stopL(); d.setText('⚠️ صار خطأ بالاتصال: '+String((e&&e.message)||'').slice(0,120)+' — جرّب مرة ثانية.'); })
     .then(function(){ busy=false; $('send').disabled=false; });
   }
   $('f').onsubmit=function(e){ e.preventDefault(); var v=$('in').value.trim(); if(!v&&!img) return; $('in').value=''; $('in').style.height='auto'; send(v); };
