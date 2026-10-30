@@ -446,7 +446,7 @@ form textarea::placeholder{color:var(--mut)}
   /* ── النماذج (تنضاف من لوحة الأدمن) ── */
   var models=[], selModel=lsGet('minelium_model')||'';
   function okModel(m){ return !sub||!sub.plan||(m.plans||[]).indexOf(sub.plan)>=0; }
-  function curModel(){ var l=models||[], m=l.filter(function(x){ return x.id===selModel; })[0]; if(m&&okModel(m)) return m; return l.filter(okModel)[0]||null; }
+  function curModel(){ var l=models||[], m=l.filter(function(x){ return x.id===selModel; })[0]; if(m&&okModel(m)) return m; return l.filter(function(x){ return x.main&&okModel(x); })[0]||l.filter(okModel)[0]||null; }
   function paintModel(){
     var m=curModel(); $('mdl').classList.toggle('hidden',!m); if(!m) return;
     selModel=m.id; $('mdlN').textContent=m.name;
