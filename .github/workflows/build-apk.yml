@@ -26,7 +26,7 @@ jobs:
           assert '</activity>' in s
           if 'android:scheme="minelium"' not in s:
               s=s.replace('</activity>', f+'</activity>', 1)
-          for pm in ('android.permission.RECORD_AUDIO','android.permission.MODIFY_AUDIO_SETTINGS','android.permission.POST_NOTIFICATIONS'):
+          for pm in ('android.permission.RECORD_AUDIO','android.permission.MODIFY_AUDIO_SETTINGS','android.permission.POST_NOTIFICATIONS','android.permission.WRITE_EXTERNAL_STORAGE'):
               if pm not in s:
                   s=s.replace('<application','<uses-permission android:name="'+pm+'" />\n    <application',1)
           open(p,'w',encoding='utf-8').write(s)
