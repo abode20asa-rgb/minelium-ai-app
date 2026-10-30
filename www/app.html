@@ -128,6 +128,9 @@ form textarea::placeholder{color:var(--mut)}
 #vcx{color:var(--mut);font-size:.88rem;line-height:1.7;max-width:420px;max-height:7.5em;overflow:hidden;min-height:3em}
 #vce{background:#d93025;color:#fff;border:0;border-radius:50%;width:70px;height:70px;font-size:1.7rem;cursor:pointer}
 #vch{color:var(--mut);font-size:.75rem;margin-bottom:14px}
+#nt{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:70;padding:20px}#nt.hidden{display:none}
+#nt .box{background:var(--sf);border-radius:22px;padding:22px 20px 18px;width:100%;max-width:380px;text-align:center}
+#nt b{display:block;color:var(--pri);font-size:1.05rem;margin-bottom:6px}#nt p{color:var(--ink);font-size:.92rem;line-height:1.8;margin:6px 0 16px;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -199,6 +202,7 @@ form textarea::placeholder{color:var(--mut)}
 
 <div id="upg" class="hidden"><div class="box"><b>⭐ اشتراك — أدخل الكود</b><p id="upgp"></p><input id="upgc" placeholder="XXXXX-XXXXX" maxlength="14" autocapitalize="characters" autocomplete="off" style="direction:ltr;text-align:center"><div class="err" id="upge"></div><button class="btn" id="upgg" type="button">🔑 تفعيل</button><button class="lnk" id="upgx" type="button">إغلاق</button></div></div>
 <div id="msheet" class="hidden"><div class="box"><b>اختر النموذج</b><div id="mlist"></div><div class="note" id="mnote"></div><button class="lnk" id="mx" type="button">إغلاق</button></div></div>
+<div id="nt" class="hidden"><div class="box"><div style="font-size:1.8rem">📢</div><b id="ntt"></b><p id="ntb"></p><button class="btn" id="ntok" type="button">تمام</button></div></div>
 <div id="vc" class="hidden">
   <div id="vct">🎙️ مكالمة صوتية</div>
   <div id="vcm"><button id="vco" type="button" aria-label="المايك"></button><div id="vcs"></div><div id="vcx"></div></div>
@@ -312,7 +316,7 @@ form textarea::placeholder{color:var(--mut)}
   function parseUrl(u){ var i=u.indexOf('#'), q=i>=0?u.slice(i+1):(u.indexOf('?')>=0?u.split('?')[1]:''), o={}; q.split('&').forEach(function(kv){ var a=kv.split('='); if(a[0]) o[a[0]]=decodeURIComponent((a[1]||'').replace(/\+/g,' ')); }); return o; }
   function jwtInfo(t){ try{ var b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'), j=JSON.parse(decodeURIComponent(escape(atob(b)))), m=j.user_metadata||{}; return {email:j.email||'',name:m.given_name||String(m.full_name||m.name||'').split(' ')[0]||''}; }catch(e){ return {email:'',name:''}; } }
   function enterWith(r,name){ try{ loadModels(); }catch(e){}
-    token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name||r.name||gUser.name||''); sub=r; show('chat'); loadHist(); setSub(r); renderList(); try{ voiceProbe(); }catch(e){}
+    token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name||r.name||gUser.name||''); sub=r; show('chat'); loadHist(); setSub(r); renderList(); try{ voiceProbe(); }catch(e){} setTimeout(checkNotices,800);
   }
   function onAuth(url){
     var q=parseUrl(url); try{ P().Browser.close(); }catch(e){}
@@ -632,11 +636,37 @@ form textarea::placeholder{color:var(--mut)}
   };
   document.addEventListener('visibilitychange',function(){ if(document.hidden&&vc.on) endCall(); });
 
+  /* ── إشعارات الأدمن: نافذة تظهر مرة وحدة لكل إشعار ── */
+  var ntq=[], ntOpen=false;
+  function ntSeen(){ try{ return JSON.parse(lsGet('minelium_seen')||'[]')||[]; }catch(e){ return []; } }
+  function ntNext(){
+    if(ntOpen||!ntq.length) return;
+    var n=ntq.shift(); ntOpen=true;
+    $('ntt').textContent=n.title||'إشعار من Minelium'; $('ntb').textContent=n.body||'';
+    $('nt').classList.remove('hidden');
+    var sn=ntSeen(); sn.push(n.id); lsSet('minelium_seen',JSON.stringify(sn.slice(-50)));
+  }
+  $('ntok').onclick=function(){ $('nt').classList.add('hidden'); ntOpen=false; setTimeout(ntNext,250); };
+  var ntLast=0;
+  function checkNotices(){
+    if(!token||!configured()||Date.now()-ntLast<60000) return; ntLast=Date.now();
+    rpc('ai_notice_latest',{p_token:token}).then(function(l){
+      if(!Array.isArray(l)) return;
+      var sn=ntSeen(), first=lsGet('minelium_seen')===null;
+      var fresh=l.filter(function(n){ return sn.indexOf(n.id)<0; }).reverse();
+      if(first) fresh=fresh.slice(-1);
+      fresh.forEach(function(n){ if(!ntq.some(function(x){return x.id===n.id;})) ntq.push(n); });
+      ntNext();
+    }).catch(function(){});
+  }
+  document.addEventListener('visibilitychange',function(){ if(!document.hidden) checkNotices(); });
+  setInterval(checkNotices,300000);
+
   /* ── البداية ── */
   loadChats(); renderList();
   token=lsGet(K_TOKEN);
   if(!token){ show('lock'); step(gmode()?1:2); return; }
-  show('chat'); loadHist(); try{ voiceProbe(); }catch(e){}
+  show('chat'); loadHist(); try{ voiceProbe(); }catch(e){} setTimeout(checkNotices,800);
   if(configured()) rpc('ai_full_check',{p_token:token}).then(function(r){
     if(r&&r.ok===false){ lost(r.reason); return; }
     if(r&&r.ok) setSub(r);
