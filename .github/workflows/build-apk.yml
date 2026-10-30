@@ -14,7 +14,7 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - run: npm install
       - run: npx cap add android
-      - name: السماح برجوع تسجيل Google للتطبيق
+      - name: السماح برجوع تسجيل Google والمايك للمكالمة الصوتية
         run: |
           python3 - <<'PY'
           p='android/app/src/main/AndroidManifest.xml'
@@ -23,6 +23,9 @@ jobs:
           assert '</activity>' in s
           if 'android:scheme="minelium"' not in s:
               s=s.replace('</activity>', f+'</activity>', 1)
+          for pm in ('android.permission.RECORD_AUDIO','android.permission.MODIFY_AUDIO_SETTINGS'):
+              if pm not in s:
+                  s=s.replace('<application','<uses-permission android:name="'+pm+'" />\n    <application',1)
           open(p,'w',encoding='utf-8').write(s)
           print('manifest patched')
           PY
