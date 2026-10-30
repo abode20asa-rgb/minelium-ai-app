@@ -489,8 +489,10 @@ form textarea::placeholder{color:var(--mut)}
   var models=[], selModel=lsGet('minelium_model')||'';
   function okModel(m){ return !sub||!sub.plan||(m.plans||[]).indexOf(sub.plan)>=0; }
   function curModel(){ var l=models||[], m=l.filter(function(x){ return x.id===selModel; })[0]; if(m&&okModel(m)) return m; return l.filter(function(x){ return x.main&&okModel(x); })[0]||l.filter(okModel)[0]||null; }
+  function hasOff(k){ var m=curModel(); return !!(m&&m.off&&m.off.indexOf(k)>=0); }
+  function applyOff(){ try{ $('att').classList.toggle('hidden',hasOff('imgin')); if(hasOff('imgin')) clearImg(); if(hasOff('voice')) $('call').classList.add('hidden'); }catch(e){} }
   function paintModel(){
-    var m=curModel(); $('mdl').classList.toggle('hidden',!m); if(!m) return;
+    var m=curModel(); $('mdl').classList.toggle('hidden',!m); if(!m) return; applyOff();
     selModel=m.id; $('mdlN').textContent=m.name;
     if(m.icon){ $('mdlI').src=m.icon; $('mdlI').style.display=''; } else $('mdlI').style.display='none';
   }
@@ -515,7 +517,7 @@ form textarea::placeholder{color:var(--mut)}
   $('mlist').onclick=function(e){
     var b=e.target.closest('.mi'); if(!b) return; var m=models[+b.dataset.i]; if(!m) return;
     if(!okModel(m)){ $('mnote').textContent='🔒 هذا النموذج لباقات أعلى — اشترك من القائمة ☰ ← «اشتراك».'; return; }
-    selModel=m.id; try{ localStorage.setItem('minelium_model',m.id); }catch(x){} paintModel(); $('msheet').classList.add('hidden');
+    selModel=m.id; try{ localStorage.setItem('minelium_model',m.id); }catch(x){} paintModel(); try{ voiceProbe(); }catch(x){} $('msheet').classList.add('hidden');
   };
   $('mx').onclick=function(){ $('msheet').classList.add('hidden'); };
   try{ loadModels(); }catch(e){}
@@ -525,17 +527,17 @@ form textarea::placeholder{color:var(--mut)}
   var vi=null, vc={on:false,gen:0,st:'',stream:null,ctx:null,an:null,rec:null,raf:0,au:null,noise:0.01,force:null};
   function voiceProbe(){
     if(!token||!configured()||!navigator.mediaDevices||!window.MediaRecorder) return;
-    fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice:'info',token:token})})
+    fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({voice:'info',token:token,model:(curModel()||{}).id})})
       .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){
         if(r.ok&&j.enabled&&j.stt) vi=j; else if(r.status===403&&j.error==='voice_locked') vi={locked:true}; else vi=null;
-        $('call').classList.toggle('hidden',!vi);
+        $('call').classList.toggle('hidden',!vi||hasOff('voice'));
       }); }).catch(function(){});
   }
   function vok(g){ return vc.on&&g===vc.gen; }
   function vcState(st,txt){ var c=$('vc').classList; ['listen','think','speak','err'].forEach(function(x){ c.remove(x); }); c.add(st); vc.st=st; $('vcs').textContent=txt; $('vco').style.transform=''; }
   function pickMime(){ var l=['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus']; for(var i=0;i<l.length;i++){ try{ if(MediaRecorder.isTypeSupported(l[i])) return l[i]; }catch(e){} } return ''; }
   function vpost(b){
-    return fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)})
+    return fetch(C.WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign({model:(curModel()||{}).id},b))})
       .then(function(r){ return r.json().catch(function(){return {};}).then(function(j){
         if(!r.ok){ var e=new Error(j.error||('HTTP '+r.status)); e.status=r.status; e.sub=j.sub; throw e; } return j; }); });
   }
