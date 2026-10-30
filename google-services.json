@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "328392998929",
+    "project_id": "minelium-ai-f8d90",
+    "storage_bucket": "minelium-ai-f8d90.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:328392998929:android:821d3d8756831deefcf1b0",
+        "android_client_info": {
+          "package_name": "com.minelium.ai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCMRPx9qnhKTgE-Tb6teT7B0NN9Xv6qgvU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
