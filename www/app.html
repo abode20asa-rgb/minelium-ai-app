@@ -316,7 +316,7 @@ form textarea::placeholder{color:var(--mut)}
   function parseUrl(u){ var i=u.indexOf('#'), q=i>=0?u.slice(i+1):(u.indexOf('?')>=0?u.split('?')[1]:''), o={}; q.split('&').forEach(function(kv){ var a=kv.split('='); if(a[0]) o[a[0]]=decodeURIComponent((a[1]||'').replace(/\+/g,' ')); }); return o; }
   function jwtInfo(t){ try{ var b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'), j=JSON.parse(decodeURIComponent(escape(atob(b)))), m=j.user_metadata||{}; return {email:j.email||'',name:m.given_name||String(m.full_name||m.name||'').split(' ')[0]||''}; }catch(e){ return {email:'',name:''}; } }
   function enterWith(r,name){ try{ loadModels(); }catch(e){}
-    token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name||r.name||gUser.name||''); sub=r; show('chat'); loadHist(); setSub(r); renderList(); try{ voiceProbe(); }catch(e){} setTimeout(checkNotices,800);
+    token=r.token; lsSet(K_TOKEN,token); lsSet('minelium_name',name||r.name||gUser.name||''); sub=r; show('chat'); loadHist(); setSub(r); renderList(); try{ voiceProbe(); }catch(e){} setTimeout(checkNotices,800); setTimeout(pushInit,2500);
   }
   function onAuth(url){
     var q=parseUrl(url); try{ P().Browser.close(); }catch(e){}
@@ -662,11 +662,22 @@ form textarea::placeholder{color:var(--mut)}
   document.addEventListener('visibilitychange',function(){ if(!document.hidden) checkNotices(); });
   setInterval(checkNotices,300000);
 
+  /* ── Push: تسجيل الجهاز حتى توصله إشعارات الأدمن فوق الشاشة (يحتاج نسخة APK فيها Firebase) ── */
+  var pushDone=false;
+  function pushInit(){
+    var pn=P().PushNotifications; if(!pn||!token||pushDone||!configured()) return; pushDone=true;
+    try{
+      pn.addListener('registration',function(t){ if(t&&t.value&&token) rpc('ai_push_register',{p_session:token,p_fcm:t.value}).catch(function(){}); });
+      pn.addListener('registrationError',function(){});
+      pn.requestPermissions().then(function(r){ if(r&&r.receive==='granted') pn.register(); }).catch(function(){});
+    }catch(e){}
+  }
+
   /* ── البداية ── */
   loadChats(); renderList();
   token=lsGet(K_TOKEN);
   if(!token){ show('lock'); step(gmode()?1:2); return; }
-  show('chat'); loadHist(); try{ voiceProbe(); }catch(e){} setTimeout(checkNotices,800);
+  show('chat'); loadHist(); try{ voiceProbe(); }catch(e){} setTimeout(checkNotices,800); setTimeout(pushInit,2500);
   if(configured()) rpc('ai_full_check',{p_token:token}).then(function(r){
     if(r&&r.ok===false){ lost(r.reason); return; }
     if(r&&r.ok) setSub(r);
